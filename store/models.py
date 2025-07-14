@@ -1,5 +1,4 @@
 # store/models.py
-
 from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth.models import User # Importa o modelo User do Django
@@ -72,6 +71,9 @@ class Product(models.Model):
         verbose_name="Categoria"
     )
     
+    # NOVO: Campo para controlar o estoque do produto
+    stock = models.PositiveIntegerField(default=0, verbose_name="Estoque")
+
     # Campo booleano para indicar se o produto deve ser exibido na página inicial
     is_featured = models.BooleanField(default=False, verbose_name="Destaque na Home")
     

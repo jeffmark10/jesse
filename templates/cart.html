@@ -28,13 +28,16 @@
                                         {% endif %}
                                         <span>{{ item.product.name }}</span>
                                     </div>
+                                    {% if item.quantity > item.product.stock %}
+                                        <p class="text-red-500 text-xs mt-1">Atenção: A quantidade excede o estoque disponível ({{ item.product.stock }}).</p>
+                                    {% endif %}
                                 </td>
                                 <td class="py-3 px-6 text-center">R$ {{ item.product.price|floatformat:2 }}</td>
                                 <td class="py-3 px-6 text-center">
                                     <form action="{% url 'store:update_cart_item' item.id %}" method="POST" class="flex items-center justify-center gap-2">
                                         {% csrf_token %}
-                                        <input type="number" name="quantity" value="{{ item.quantity }}" min="1" class="w-16 p-1 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-pink-500">
-                                        <button type="submit" class="bg-blue-500 text-white p-1 rounded-md hover:bg-blue-600 transition duration-200 text-xs">Atualizar</button>
+                                        <input type="number" name="quantity" value="{{ item.quantity }}" min="1" max="{{ item.product.stock }}" class="w-16 p-1 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-pink-500" {% if item.product.stock == 0 %}disabled{% endif %}>
+                                        <button type="submit" class="bg-blue-500 text-white p-1 rounded-md hover:bg-blue-600 transition duration-200 text-xs" {% if item.product.stock == 0 %}disabled{% endif %}>Atualizar</button>
                                     </form>
                                 </td>
                                 <td class="py-3 px-6 text-center">R$ {{ item.get_total_price|floatformat:2 }}</td>

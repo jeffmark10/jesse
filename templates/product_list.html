@@ -14,15 +14,47 @@
         <p class="text-center text-gray-600 mb-10 text-lg">Confira nossa coleção completa de sandálias e camisetas.</p>
     {% endif %}
     
-    <!-- Barra de Busca Específica da Página de Produtos (opcional, já tem no base.html) -->
-    <div class="mb-8 p-4 bg-white rounded-lg shadow-md md:hidden">
-        <form action="{% url 'store:product_list' %}" method="GET" class="flex items-center">
-            <input type="text" name="q" placeholder="Buscar produtos..." class="flex-grow p-2 border border-gray-300 rounded-l-md outline-none" value="{{ search_query|default:'' }}">
-            <button type="submit" class="bg-pink-600 text-white p-2 rounded-r-md hover:bg-pink-700 transition duration-200">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-            </button>
+    <!-- Barra de Busca e Filtros -->
+    <div class="mb-8 p-4 bg-white rounded-lg shadow-md">
+        <form action="{% url 'store:product_list' %}" method="GET" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
+            <!-- Campo de Busca -->
+            <div class="col-span-full md:col-span-1">
+                <label for="q" class="block text-gray-700 text-sm font-bold mb-2">Buscar:</label>
+                <input type="text" id="q" name="q" placeholder="Nome ou descrição..." class="w-full p-2 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-pink-500" value="{{ search_query|default:'' }}">
+            </div>
+
+            <!-- Filtro de Preço Mínimo -->
+            <div>
+                <label for="min_price" class="block text-gray-700 text-sm font-bold mb-2">Preço Mínimo:</label>
+                <input type="number" id="min_price" name="min_price" placeholder="R$ 0.00" step="0.01" class="w-full p-2 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-pink-500" value="{{ min_price|default:'' }}">
+            </div>
+
+            <!-- Filtro de Preço Máximo -->
+            <div>
+                <label for="max_price" class="block text-gray-700 text-sm font-bold mb-2">Preço Máximo:</label>
+                <input type="number" id="max_price" name="max_price" placeholder="R$ 999.99" step="0.01" class="w-full p-2 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-pink-500" value="{{ max_price|default:'' }}">
+            </div>
+
+            <!-- Ordenação -->
+            <div>
+                <label for="sort_by" class="block text-gray-700 text-sm font-bold mb-2">Ordenar Por:</label>
+                <select id="sort_by" name="sort_by" class="w-full p-2 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-pink-500">
+                    <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Nome (A-Z)</option>
+                    <option value="name_desc" {% if sort_by == 'name_desc' %}selected{% endif %}>Nome (Z-A)</option>
+                    <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Preço (Menor para Maior)</option>
+                    <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Preço (Maior para Menor)</option>
+                    <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Mais Recentes</option>
+                </select>
+            </div>
+            
+            <div class="col-span-full md:col-span-1 flex justify-end md:justify-start">
+                <button type="submit" class="bg-pink-600 text-white py-2 px-6 rounded-md hover:bg-pink-700 transition duration-200 shadow-md">
+                    Aplicar Filtros
+                </button>
+            </div>
+            {% if current_category %}
+                <input type="hidden" name="category_slug" value="{{ current_category.slug }}">
+            {% endif %}
         </form>
     </div>
 
@@ -40,17 +72,63 @@
                     <div class="p-6">
                         <h3 class="text-xl font-semibold text-gray-700 mb-2 group-hover:text-pink-600 transition duration-200">{{ product.name }}</h3>
                         {% if product.category %}
-                            <p class="text-sm text-gray-500 mb-2">Categoria: {{ product.category.name }}</p> {# Adicionado para mostrar a categoria #}
+                            <p class="text-sm text-gray-500 mb-2">Categoria: {{ product.category.name }}</p>
                         {% endif %}
                         <p class="text-gray-600 text-lg font-bold">R$ {{ product.price|floatformat:2 }}</p>
-                        <a href="{% url 'store:product_detail' pk=product.pk %}" class="mt-4 inline-block bg-pink-600 text-white py-2 px-4 rounded-full hover:bg-pink-700 transition duration-300 text-sm">
-                            Ver Detalhes
-                        </a>
+                        {% if product.stock > 0 %}
+                            <p class="text-sm text-green-600 mt-1">Em estoque: {{ product.stock }}</p>
+                            <form action="{% url 'store:add_to_cart' product.pk %}" method="POST" class="mt-4 flex items-center gap-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="quantity" value="1">
+                                <button type="submit" class="inline-block bg-pink-600 text-white py-2 px-4 rounded-full hover:bg-pink-700 transition duration-300 text-sm">
+                                    Adicionar ao Carrinho
+                                </button>
+                                <a href="{% url 'store:product_detail' pk=product.pk %}" class="inline-block text-pink-600 border border-pink-600 py-2 px-4 rounded-full hover:bg-pink-100 transition duration-300 text-sm">
+                                    Detalhes
+                                </a>
+                            </form>
+                        {% else %}
+                            <p class="text-sm text-red-600 mt-1 font-semibold">Esgotado</p>
+                            <a href="{% url 'store:product_detail' pk=product.pk %}" class="mt-4 inline-block text-pink-600 border border-pink-600 py-2 px-4 rounded-full hover:bg-pink-100 transition duration-300 text-sm">
+                                Detalhes
+                            </a>
+                        {% endif %}
                     </div>
                 </div>
             {% endfor %}
         {% else %}
-            <p class="text-center text-gray-600 col-span-full py-8 text-xl">Nenhum produto encontrado nesta categoria. Volte em breve!</p>
+            <p class="text-center text-gray-600 col-span-full py-8 text-xl">Nenhum produto encontrado com os filtros aplicados.</p>
         {% endif %}
+    </div>
+
+    <!-- Paginação -->
+    <div class="flex justify-center mt-10">
+        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            {% if products.has_previous %}
+                <a href="?page={{ products.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Anterior</span>
+                    <!-- Heroicon name: solid/chevron-left -->
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </a>
+            {% endif %}
+
+            {% for i in products.paginator.page_range %}
+                <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}" class="{% if products.number == i %}z-10 bg-pink-50 border-pink-500 text-pink-600{% else %}bg-white border-gray-300 text-gray-700 hover:bg-gray-50{% endif %} relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                    {{ i }}
+                </a>
+            {% endfor %}
+
+            {% if products.has_next %}
+                <a href="?page={{ products.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if sort_by %}&sort_by={{ sort_by }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Próximo</span>
+                    <!-- Heroicon name: solid/chevron-right -->
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </a>
+            {% endif %}
+        </nav>
     </div>
 {% endblock %}
