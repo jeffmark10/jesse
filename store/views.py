@@ -8,8 +8,8 @@ from django.contrib import messages # Para mensagens de feedback
 from django.db.models import Q # Para funcionalidade de busca
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger # Para paginação
 
-from .models import Product, Category, Cart, CartItem # Importa os novos modelos de carrinho
-from .forms import ContactForm # Importa o formulário de contato
+from .models import Product, Category, Cart, CartItem, Profile # Importa os novos modelos de carrinho e Profile
+from .forms import ContactForm, ProductForm # Importa o formulário de contato e ProductForm
 
 # --- Funções Auxiliares ---
 
@@ -72,6 +72,32 @@ def get_or_create_cart(request):
             cart = Cart.objects.create(session_key=request.session.session_key)
             request.session['cart_id'] = cart.id
         return cart
+
+# NOVO DECORADOR: Garante que apenas vendedores possam acessar a view
+def seller_required(function):
+    def wrap(request, *args, **kwargs):
+        # Primeiro, verifica se o usuário está logado (reutiliza a lógica de login_required)
+        if not request.user.is_authenticated:
+            messages.error(request, "Você precisa estar logado para acessar esta área.")
+            return redirect('login') # Redireciona para a página de login
+
+        # Tenta obter o perfil do usuário
+        try:
+            profile = request.user.profile
+        except Profile.DoesNotExist:
+            # Se o perfil não existe, cria um novo perfil e define como não-vendedor
+            profile = Profile.objects.create(user=request.user, is_seller=False)
+            messages.warning(request, "Seu perfil foi criado. Você não tem permissão de vendedor.")
+            return redirect('store:user_profile') # Redireciona para o perfil
+
+        # Verifica se o usuário é um vendedor
+        if not profile.is_seller:
+            messages.warning(request, "Você não tem permissão para acessar esta área. Contate a administração se deseja se tornar um vendedor.")
+            return redirect('store:user_profile') # Redireciona para o perfil se não for vendedor
+
+        return function(request, *args, **kwargs)
+    return wrap
+
 
 # --- Views Principais ---
 
@@ -342,3 +368,92 @@ def custom_500_view(request):
         'categories': categories,
     }
     return render(request, '500.html', context, status=500)
+
+
+# --- NOVAS VIEWS PARA VENDEDORES ---
+
+@seller_required # Protege a view para que só vendedores acessem
+def add_product_view(request):
+    categories = get_categories_tree()
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES)
+        if form.is_valid():
+            product = form.save(commit=False)
+            product.seller = request.user
+            product.save()
+            messages.success(request, f"Produto '{product.name}' adicionado com sucesso!")
+            return redirect('store:my_products')
+        else:
+            messages.error(request, "Por favor, corrija os erros no formulário.")
+    else:
+        form = ProductForm()
+    
+    context = {
+        'page_title': 'Adicionar Novo Produto',
+        'form': form,
+        'categories': categories,
+    }
+    # CORREÇÃO AQUI: Caminho completo para o template
+    return render(request, 'store/seller/seller_add_product.html', context)
+
+
+@seller_required # Protege a view
+def my_products_view(request):
+    categories = get_categories_tree()
+    products = Product.objects.filter(seller=request.user).order_by('-created_at')
+
+    paginator = Paginator(products, 10)
+    page_number = request.GET.get('page')
+    try:
+        products = paginator.page(page_number)
+    except PageNotAnInteger:
+        products = paginator.page(1)
+    except EmptyPage:
+        products = paginator.page(paginator.num_pages)
+        
+    context = {
+        'page_title': 'Meus Produtos',
+        'products': products,
+        'categories': categories,
+    }
+    # CORREÇÃO AQUI: Caminho completo para o template
+    return render(request, 'store/seller/seller_my_products.html', context)
+
+
+@seller_required # Protege a view
+def edit_product_view(request, pk):
+    product = get_object_or_404(Product, pk=pk, seller=request.user)
+    categories = get_categories_tree()
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES, instance=product)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Produto '{product.name}' atualizado com sucesso!")
+            return redirect('store:my_products')
+        else:
+            messages.error(request, "Por favor, corrija os erros no formulário.")
+    else:
+        form = ProductForm(instance=product)
+    
+    context = {
+        'page_title': f'Editar Produto: {product.name}',
+        'form': form,
+        'product': product,
+        'categories': categories,
+    }
+    # CORREÇÃO AQUI: Caminho completo para o template
+    return render(request, 'store/seller/seller_edit_product.html', context)
+
+
+@seller_required # Protege a view
+def delete_product_view(request, pk):
+    product = get_object_or_404(Product, pk=pk, seller=request.user)
+    if request.method == 'POST':
+        product_name = product.name
+        product.delete()
+        messages.info(request, f"Produto '{product_name}' excluído com sucesso.")
+        return redirect('store:my_products')
+    
+    messages.error(request, "Método inválido para exclusão. Confirme a exclusão via POST.")
+    return redirect('store:my_products')
+

@@ -24,4 +24,10 @@ urlpatterns = [
     path('registrar/', views.signup_view, name='signup'),
     path('perfil/', views.user_profile_view, name='user_profile'),
     # As URLs de login/logout/password_reset já estão incluídas via 'django.contrib.auth.urls' no urls.py principal
+
+    # NOVAS ROTAS PARA VENDEDORES
+    path('vendedor/adicionar-produto/', views.add_product_view, name='add_product'),
+    path('vendedor/meus-produtos/', views.my_products_view, name='my_products'),
+    path('vendedor/editar-produto/<int:pk>/', views.edit_product_view, name='edit_product'),
+    path('vendedor/excluir-produto/<int:pk>/', views.delete_product_view, name='delete_product'),
 ]
