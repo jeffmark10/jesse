@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="bg-white rounded-2xl shadow-xl p-8 lg:p-12 animate-fade-in">
+        <h1 class="text-4xl lg:text-5xl font-bold text-gray-700 mb-8 text-center leading-tight">Seu Carrinho de Compras</h1>
+        
+        {% if cart.items.all %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <thead>
+                        <tr class="bg-pink-50 text-pink-700 uppercase text-sm leading-normal">
+                            <th class="py-3 px-6 text-left">Produto</th>
+                            <th class="py-3 px-6 text-center">Preço</th>
+                            <th class="py-3 px-6 text-center">Quantidade</th>
+                            <th class="py-3 px-6 text-center">Total</th>
+                            <th class="py-3 px-6 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-600 text-sm font-light">
+                        {% for item in cart.items.all %}
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-3 px-6 text-left whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        {% if item.product.image %}
+                                            <img class="w-12 h-12 rounded-full object-cover mr-4" src="{{ item.product.image.url }}" alt="{{ item.product.name }}">
+                                        {% else %}
+                                            <img class="w-12 h-12 rounded-full object-cover mr-4" src="https://placehold.co/50x50/cccccc/ffffff?text=Img" alt="Sem Imagem">
+                                        {% endif %}
+                                        <span>{{ item.product.name }}</span>
+                                    </div>
+                                </td>
+                                <td class="py-3 px-6 text-center">R$ {{ item.product.price|floatformat:2 }}</td>
+                                <td class="py-3 px-6 text-center">
+                                    <form action="{% url 'store:update_cart_item' item.id %}" method="POST" class="flex items-center justify-center gap-2">
+                                        {% csrf_token %}
+                                        <input type="number" name="quantity" value="{{ item.quantity }}" min="1" class="w-16 p-1 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-pink-500">
+                                        <button type="submit" class="bg-blue-500 text-white p-1 rounded-md hover:bg-blue-600 transition duration-200 text-xs">Atualizar</button>
+                                    </form>
+                                </td>
+                                <td class="py-3 px-6 text-center">R$ {{ item.get_total_price|floatformat:2 }}</td>
+                                <td class="py-3 px-6 text-center">
+                                    <form action="{% url 'store:remove_from_cart' item.id %}" method="POST" class="inline-block">
+                                        {% csrf_token %}
+                                        <button type="submit" class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition duration-200 text-xs">
+                                            Remover
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end mt-8">
+                <div class="text-right text-2xl font-bold text-gray-700">
+                    Total do Carrinho: <span class="text-pink-600">R$ {{ cart.get_total_price|floatformat:2 }}</span>
+                </div>
+            </div>
+
+            <div class="flex justify-center mt-10">
+                <button class="bg-green-600 text-white py-3 px-8 rounded-full text-xl font-semibold hover:bg-green-700 transition duration-300 shadow-lg transform hover:-translate-y-1">
+                    Finalizar Compra (Checkout)
+                </button>
+            </div>
+        {% else %}
+            <div class="text-center text-gray-600 py-12">
+                <p class="text-2xl mb-4">Seu carrinho está vazio!</p>
+                <p class="text-lg">Que tal explorar nossos <a href="{% url 'store:product_list' %}" class="text-pink-600 hover:underline font-semibold">produtos</a> e adicionar algo?</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

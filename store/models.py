@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.utils.text import slugify
+from django.contrib.auth.models import User # Importa o modelo User do Django
 
 # Modelo para representar uma categoria de produto
 class Category(models.Model):
@@ -90,3 +91,38 @@ class Product(models.Model):
         # Representação em string do objeto Product
         return self.name
 
+# Modelo para representar um carrinho de compras
+class Cart(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Usuário")
+    session_key = models.CharField(max_length=40, null=True, blank=True, unique=True, verbose_name="Chave de Sessão")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado Em")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado Em")
+
+    class Meta:
+        verbose_name_plural = "Carrinhos"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        if self.user:
+            return f"Carrinho de {self.user.username}"
+        return f"Carrinho de Sessão {self.session_key[:10]}..."
+
+    def get_total_price(self):
+        return sum(item.get_total_price() for item in self.items.all())
+
+# Modelo para representar um item dentro do carrinho de compras
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items', verbose_name="Carrinho")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name="Produto")
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Quantidade")
+    added_at = models.DateTimeField(auto_now_add=True, verbose_name="Adicionado Em")
+
+    class Meta:
+        verbose_name_plural = "Itens do Carrinho"
+        unique_together = ('cart', 'product') # Garante que um produto só aparece uma vez por carrinho
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name} no carrinho de {self.cart}"
+
+    def get_total_price(self):
+        return self.quantity * self.product.price

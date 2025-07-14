@@ -14,6 +14,18 @@
         <p class="text-center text-gray-600 mb-10 text-lg">Confira nossa coleção completa de sandálias e camisetas.</p>
     {% endif %}
     
+    <!-- Barra de Busca Específica da Página de Produtos (opcional, já tem no base.html) -->
+    <div class="mb-8 p-4 bg-white rounded-lg shadow-md md:hidden">
+        <form action="{% url 'store:product_list' %}" method="GET" class="flex items-center">
+            <input type="text" name="q" placeholder="Buscar produtos..." class="flex-grow p-2 border border-gray-300 rounded-l-md outline-none" value="{{ search_query|default:'' }}">
+            <button type="submit" class="bg-pink-600 text-white p-2 rounded-r-md hover:bg-pink-700 transition duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </button>
+        </form>
+    </div>
+
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
         {% if products %}
             {% for product in products %}
@@ -27,6 +39,9 @@
                     </a>
                     <div class="p-6">
                         <h3 class="text-xl font-semibold text-gray-700 mb-2 group-hover:text-pink-600 transition duration-200">{{ product.name }}</h3>
+                        {% if product.category %}
+                            <p class="text-sm text-gray-500 mb-2">Categoria: {{ product.category.name }}</p> {# Adicionado para mostrar a categoria #}
+                        {% endif %}
                         <p class="text-gray-600 text-lg font-bold">R$ {{ product.price|floatformat:2 }}</p>
                         <a href="{% url 'store:product_detail' pk=product.pk %}" class="mt-4 inline-block bg-pink-600 text-white py-2 px-4 rounded-full hover:bg-pink-700 transition duration-300 text-sm">
                             Ver Detalhes

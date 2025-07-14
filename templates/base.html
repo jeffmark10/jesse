@@ -121,6 +121,38 @@
                 margin-left: 0; /* Não desloca o conteúdo em telas pequenas */
             }
         }
+
+        /* Estilo para mensagens do Django */
+        .messages {
+            list-style: none;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+        }
+        .messages li {
+            margin-bottom: 0.5rem;
+        }
+        .messages .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .messages .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .messages .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .messages .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-stone-50 to-pink-50 flex flex-col min-h-screen text-gray-700">
@@ -129,6 +161,7 @@
     <div id="sidebar" class="sidebar">
         <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
         <h3 class="text-2xl font-bold text-gray-800 px-6 py-4 border-b border-pink-100">Categorias</h3>
+        <a href="{% url 'store:product_list' %}" class="font-bold text-pink-600 hover:text-pink-800">Todos os Produtos</a>
         {% for category in categories %}
             {% if not category.parent %} {# Apenas categorias de nível superior #}
                 <div class="category-toggle" onclick="toggleSubMenu(this)">
@@ -156,18 +189,81 @@
         <!-- Cabeçalho da Jeci Store -->
         <header class="bg-white shadow-lg p-4 sticky top-0 z-50">
             <nav class="container mx-auto flex flex-col sm:flex-row justify-between items-center">
-                <div class="flex items-center">
+                <div class="flex items-center mb-2 sm:mb-0">
                     <span class="text-gray-600 text-3xl cursor-pointer mr-4" onclick="openNav()">&#9776;</span> {# Ícone de hambúrguer #}
-                    <a href="{% url 'home' %}" class="text-3xl font-extrabold text-gray-800 mb-2 sm:mb-0">Jeci Store</a>
+                    <a href="{% url 'home' %}" class="text-3xl font-extrabold text-gray-800">Jeci Store</a>
                 </div>
-                <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-lg">
+
+                <!-- Barra de Busca (visível em telas maiores) -->
+                <div class="hidden md:block flex-grow mx-4">
+                    <form action="{% url 'store:product_list' %}" method="GET" class="flex items-center border border-gray-300 rounded-full px-4 py-2 shadow-sm focus-within:ring-2 focus-within:ring-pink-500">
+                        <input type="text" name="q" placeholder="Buscar produtos..." class="flex-grow outline-none bg-transparent text-gray-700" value="{{ request.GET.q|default:'' }}">
+                        <button type="submit" class="text-gray-500 hover:text-pink-600 ml-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+
+                <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-lg items-center">
                     <a href="{% url 'home' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Início</a>
                     <a href="{% url 'store:product_list' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Produtos</a>
                     <a href="{% url 'store:about' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Sobre Nós</a>
                     <a href="{% url 'store:contact' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Contato</a>
+                    
+                    <!-- Ícone do Carrinho -->
+                    <a href="{% url 'store:view_cart' %}" class="relative text-gray-600 hover:text-pink-600 transition duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5H3m4 8V5m0 8a2 2 0 100 4m0-4a2 2 0 110 4m-8 0a2 2 0 100 4m0-4a2 2 0 110 4" />
+                        </svg>
+                        {% if request.user.is_authenticated and request.user.cart.items.count > 0 %}
+                            <span class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">{{ request.user.cart.items.count }}</span>
+                        {% elif not request.user.is_authenticated %}
+                            {% with session_cart_id=request.session.cart_id %}
+                                {% if session_cart_id %}
+                                    {% comment %}
+                                        Para exibir a contagem do carrinho de sessão sem estar logado,
+                                        você precisaria de um context processor ou de uma chamada AJAX.
+                                        Por simplicidade, aqui apenas indica que há um carrinho.
+                                    {% endcomment %}
+                                    <span class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">!</span>
+                                {% endif %}
+                            {% endwith %}
+                        {% endif %}
+                    </a>
+
+                    <!-- Links de Autenticação -->
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'store:user_profile' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Olá, {{ user.username }}</a>
+                        <a href="{% url 'logout' %}" class="bg-red-500 text-white py-1 px-3 rounded-full text-sm hover:bg-red-600 transition duration-200">Sair</a>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Entrar</a>
+                        <a href="{% url 'store:signup' %}" class="bg-pink-600 text-white py-1 px-3 rounded-full text-sm hover:bg-pink-700 transition duration-200">Registrar</a>
+                    {% endif %}
                 </div>
             </nav>
+            <!-- Barra de Busca (visível em telas menores) -->
+            <div class="md:hidden mt-4">
+                <form action="{% url 'store:product_list' %}" method="GET" class="flex items-center border border-gray-300 rounded-full px-4 py-2 shadow-sm focus-within:ring-2 focus-within:ring-pink-500">
+                    <input type="text" name="q" placeholder="Buscar produtos..." class="flex-grow outline-none bg-transparent text-gray-700" value="{{ request.GET.q|default:'' }}">
+                    <button type="submit" class="text-gray-500 hover:text-pink-600 ml-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+                </form>
+            </div>
         </header>
+
+        <!-- Área de Mensagens do Django -->
+        {% if messages %}
+            <ul class="messages container mx-auto mt-4 px-4">
+                {% for message in messages %}
+                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
 
         <!-- Conteúdo principal da página -->
         <main class="flex-grow container mx-auto p-4 md:p-8">

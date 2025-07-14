@@ -2,26 +2,26 @@
 
 from django.urls import path
 from . import views
+from django.contrib.auth import views as auth_views # Importa as views de autenticação do Django
 
 app_name = 'store'
 
 urlpatterns = [
-    # A rota para a página inicial é mapeada no urls.py principal do projeto
-    # path('', views.home_view, name='home'), 
-    
-    # Rota para a lista de todos os produtos
+    # Rotas de Produtos e Páginas Estáticas
     path('produtos/', views.product_list_view, name='product_list'),
-    
-    # NOVA ROTA: Rota para listar produtos por categoria
     path('produtos/categoria/<slug:category_slug>/', views.product_list_view, name='product_list_by_category'),
-    
-    # Rota para os detalhes de um produto específico
     path('produtos/<int:pk>/', views.product_detail_view, name='product_detail'),
-    
-    # Rota para a página "Sobre Nós"
     path('sobre/', views.about_view, name='about'),
-    
-    # Rota para a página de "Contato"
     path('contato/', views.contact_view, name='contact'),
-]
 
+    # Rotas de Carrinho de Compras
+    path('carrinho/adicionar/<int:product_id>/', views.add_to_cart, name='add_to_cart'),
+    path('carrinho/', views.view_cart, name='view_cart'),
+    path('carrinho/atualizar/<int:item_id>/', views.update_cart_item, name='update_cart_item'),
+    path('carrinho/remover/<int:item_id>/', views.remove_from_cart, name='remove_from_cart'),
+
+    # Rotas de Autenticação e Perfil
+    path('registrar/', views.signup_view, name='signup'),
+    path('perfil/', views.user_profile_view, name='user_profile'),
+    # As URLs de login/logout/password_reset já estão incluídas via 'django.contrib.auth.urls' no urls.py principal
+]

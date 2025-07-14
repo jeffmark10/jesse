@@ -1,15 +1,78 @@
 # store/views.py
 
-from django.shortcuts import render, get_object_or_404
-from .models import Product, Category # Importa o modelo Category
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import HttpResponse, Http404 # Importa Http404 para erros
+from django.contrib.auth.forms import UserCreationForm # Para registro de usuário
+from django.contrib.auth.decorators import login_required # Para proteger views
+from django.contrib import messages # Para mensagens de feedback
+from django.db.models import Q # Para funcionalidade de busca
 
-# Função auxiliar para obter categorias raiz e seus filhos
+from .models import Product, Category, Cart, CartItem # Importa os novos modelos de carrinho
+from .forms import ContactForm # Importa o formulário de contato
+
+# --- Funções Auxiliares ---
+
+def get_descendant_category_ids(category):
+    """
+    Retorna uma lista de IDs da categoria fornecida e de todas as suas subcategorias
+    em qualquer nível de profundidade.
+    """
+    category_ids = [category.id]
+    for child in category.children.all():
+        category_ids.extend(get_descendant_category_ids(child)) # Chamada recursiva
+    return category_ids
+
 def get_categories_tree():
-    # Busca todas as categorias que não têm um pai (categorias de nível superior)
+    """
+    Busca todas as categorias de nível superior e pré-carrega seus filhos
+    para construir a árvore de categorias no menu.
+    """
     root_categories = Category.objects.filter(parent__isnull=True).prefetch_related('children')
     return root_categories
 
-# View para a página inicial da Jeci Store
+def get_or_create_cart(request):
+    """
+    Obtém o carrinho do usuário logado ou da sessão.
+    Cria um novo carrinho se não existir.
+    """
+    if request.user.is_authenticated:
+        # Tenta obter o carrinho do usuário logado
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        # Se houver um session_key e o carrinho foi criado agora, tenta migrar itens da sessão
+        if created and request.session.session_key:
+            session_cart = Cart.objects.filter(session_key=request.session.session_key).first()
+            if session_cart:
+                for item in session_cart.items.all():
+                    # Tenta adicionar o item ao carrinho do usuário
+                    user_cart_item, item_created = CartItem.objects.get_or_create(
+                        cart=cart,
+                        product=item.product,
+                        defaults={'quantity': item.quantity}
+                    )
+                    if not item_created:
+                        user_cart_item.quantity += item.quantity
+                        user_cart_item.save()
+                session_cart.delete() # Remove o carrinho da sessão após a migração
+                del request.session['cart_id'] # Limpa a session_key do carrinho antigo
+        return cart
+    else:
+        # Para usuários não logados, usa a session_key
+        if not request.session.session_key:
+            request.session.save() # Garante que uma session_key exista
+        cart_id = request.session.get('cart_id')
+        if cart_id:
+            try:
+                cart = Cart.objects.get(id=cart_id)
+            except Cart.DoesNotExist:
+                cart = Cart.objects.create(session_key=request.session.session_key)
+                request.session['cart_id'] = cart.id
+        else:
+            cart = Cart.objects.create(session_key=request.session.session_key)
+            request.session['cart_id'] = cart.id
+        return cart
+
+# --- Views Principais ---
+
 def home_view(request):
     featured_products = Product.objects.filter(is_featured=True)[:4]
     categories = get_categories_tree() # Obtém a árvore de categorias
@@ -20,59 +83,199 @@ def home_view(request):
     }
     return render(request, 'home.html', context)
 
-# View para listar todos os produtos ou produtos por categoria
-def product_list_view(request, category_slug=None): # Adiciona category_slug como parâmetro opcional
+def product_list_view(request, category_slug=None):
     products = Product.objects.all()
     current_category = None
+    search_query = request.GET.get('q') # Obtém o parâmetro de busca 'q'
 
     if category_slug:
-        # Se um slug de categoria for fornecido, filtra os produtos por essa categoria
         current_category = get_object_or_404(Category, slug=category_slug)
-        # Filtra por produtos da categoria atual OU de suas subcategorias
-        # Isso garante que ao selecionar "Feminino", você veja todas as blusas, calças, etc.
-        category_ids = [current_category.id]
-        for child in current_category.children.all():
-            category_ids.append(child.id)
-            # Se você tiver mais níveis de subcategorias, precisaria de uma função recursiva aqui
-            # para coletar todos os IDs de categorias descendentes.
-            # Para 2 níveis (Pai -> Filho), isso é suficiente.
-        products = products.filter(category__id__in=category_ids)
+        category_ids_to_filter = get_descendant_category_ids(current_category)
+        products = products.filter(category__id__in=category_ids_to_filter)
+    
+    if search_query:
+        # Filtra produtos pelo nome ou descrição que contenham a query de busca
+        products = products.filter(
+            Q(name__icontains=search_query) | Q(description__icontains=search_query)
+        ).distinct() # Usa distinct para evitar duplicatas se um produto corresponder em nome e descrição
+        
+        # Adiciona uma mensagem se não houver resultados para a busca
+        if not products.exists():
+            messages.info(request, f"Nenhum produto encontrado para '{search_query}'.")
 
-    categories = get_categories_tree() # Obtém a árvore de categorias para o menu
+    categories = get_categories_tree()
     context = {
         'products': products,
-        'current_category': current_category, # Passa a categoria atual (se houver)
+        'current_category': current_category,
         'page_title': current_category.name if current_category else 'Nossos Produtos',
-        'categories': categories, # Passa as categorias para o template
+        'categories': categories,
+        'search_query': search_query, # Passa a query de busca para o template
     }
     return render(request, 'product_list.html', context)
 
-# View para exibir os detalhes de um produto específico
 def product_detail_view(request, pk):
     product = get_object_or_404(Product, pk=pk)
-    categories = get_categories_tree() # Obtém a árvore de categorias
+    categories = get_categories_tree()
     context = {
         'product': product,
         'page_title': product.name,
-        'categories': categories, # Passa as categorias para o template
+        'categories': categories,
     }
     return render(request, 'product_detail.html', context)
 
-# View para a página "Sobre Nós"
 def about_view(request):
-    categories = get_categories_tree() # Obtém a árvore de categorias
+    categories = get_categories_tree()
     context = {
         'page_title': 'Sobre a Jeci Store',
-        'categories': categories, # Passa as categorias para o template
+        'categories': categories,
     }
     return render(request, 'about.html', context)
 
-# View para a página de "Contato"
 def contact_view(request):
-    categories = get_categories_tree() # Obtém a árvore de categorias
+    categories = get_categories_tree()
+    if request.method == 'POST':
+        form = ContactForm(request.POST)
+        if form.is_valid():
+            # Aqui você processaria o formulário, por exemplo, enviando um e-mail
+            # (necessitaria de configurações de e-mail no settings.py)
+            name = form.cleaned_data['name']
+            email = form.cleaned_data['email']
+            message = form.cleaned_data['message']
+            
+            # Exemplo de como você enviaria um e-mail:
+            # from django.core.mail import send_mail
+            # send_mail(
+            #     f'Mensagem de Contato da Jeci Store de {name}',
+            #     message,
+            #     email, # De
+            #     ['seu_email@exemplo.com'], # Para
+            #     fail_silently=False,
+            # )
+            
+            messages.success(request, 'Sua mensagem foi enviada com sucesso! Em breve entraremos em contato.')
+            return redirect('store:contact') # Redireciona para evitar reenvio do formulário
+        else:
+            messages.error(request, 'Por favor, corrija os erros no formulário.')
+    else:
+        form = ContactForm() # Formulário vazio para requisições GET
+
     context = {
         'page_title': 'Fale Conosco',
-        'categories': categories, # Passa as categorias para o template
+        'categories': categories,
+        'form': form, # Passa o formulário para o template
     }
     return render(request, 'contact.html', context)
 
+# --- Views de Carrinho de Compras ---
+
+def add_to_cart(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    cart = get_or_create_cart(request)
+    quantity = int(request.POST.get('quantity', 1)) # Pega a quantidade do POST, padrão 1
+
+    cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product, defaults={'quantity': quantity})
+    if not created:
+        cart_item.quantity += quantity
+        cart_item.save()
+    
+    messages.success(request, f"{quantity}x {product.name} adicionado ao carrinho!")
+    return redirect('store:product_detail', pk=product_id) # Redireciona para a página do produto
+
+def view_cart(request):
+    cart = get_or_create_cart(request)
+    categories = get_categories_tree()
+    context = {
+        'cart': cart,
+        'page_title': 'Seu Carrinho',
+        'categories': categories,
+    }
+    return render(request, 'cart.html', context)
+
+def update_cart_item(request, item_id):
+    cart_item = get_object_or_404(CartItem, id=item_id)
+    cart = get_or_create_cart(request)
+
+    # Garante que o item pertence ao carrinho correto (segurança)
+    if cart_item.cart != cart:
+        messages.error(request, "Você não tem permissão para modificar este item do carrinho.")
+        return redirect('store:view_cart')
+
+    if request.method == 'POST':
+        try:
+            new_quantity = int(request.POST.get('quantity'))
+            if new_quantity <= 0:
+                cart_item.delete()
+                messages.info(request, f"Item '{cart_item.product.name}' removido do carrinho.")
+            else:
+                cart_item.quantity = new_quantity
+                cart_item.save()
+                messages.success(request, f"Quantidade de '{cart_item.product.name}' atualizada para {new_quantity}.")
+        except (ValueError, TypeError):
+            messages.error(request, "Quantidade inválida.")
+    return redirect('store:view_cart')
+
+def remove_from_cart(request, item_id):
+    cart_item = get_object_or_404(CartItem, id=item_id)
+    cart = get_or_create_cart(request)
+
+    # Garante que o item pertence ao carrinho correto (segurança)
+    if cart_item.cart != cart:
+        messages.error(request, "Você não tem permissão para remover este item do carrinho.")
+        return redirect('store:view_cart')
+
+    product_name = cart_item.product.name
+    cart_item.delete()
+    messages.info(request, f"'{product_name}' removido do carrinho.")
+    return redirect('store:view_cart')
+
+# --- Views de Autenticação e Perfil (Básicas) ---
+
+def signup_view(request):
+    categories = get_categories_tree()
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            # login(request, user) # Opcional: logar o usuário automaticamente após o registro
+            messages.success(request, 'Sua conta foi criada com sucesso! Faça login para continuar.')
+            return redirect('login') # Redireciona para a página de login
+        else:
+            messages.error(request, 'Por favor, corrija os erros no formulário de registro.')
+    else:
+        form = UserCreationForm()
+    context = {
+        'page_title': 'Registrar-se',
+        'form': form,
+        'categories': categories,
+    }
+    return render(request, 'registration/signup.html', context)
+
+@login_required # Garante que apenas usuários logados podem acessar esta view
+def user_profile_view(request):
+    categories = get_categories_tree()
+    context = {
+        'page_title': f'Perfil de {request.user.username}',
+        'categories': categories,
+        # Adicione aqui informações adicionais do perfil do usuário, se houver
+        # Ex: 'orders': Order.objects.filter(user=request.user)
+    }
+    return render(request, 'user_profile.html', context)
+
+
+# --- Manipuladores de Erro Personalizados ---
+
+def custom_404_view(request, exception):
+    categories = get_categories_tree()
+    context = {
+        'page_title': 'Página Não Encontrada',
+        'categories': categories,
+    }
+    return render(request, '404.html', context, status=404)
+
+def custom_500_view(request):
+    categories = get_categories_tree()
+    context = {
+        'page_title': 'Erro Interno do Servidor',
+        'categories': categories,
+    }
+    return render(request, '500.html', context, status=500)

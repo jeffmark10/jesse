@@ -10,22 +10,51 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+# jecistore_project/settings.py
+import os
+from dotenv import load_dotenv
+
+load_dotenv() # Carrega as variáveis do arquivo .env
+
+# ... o restante do seu settings.py ...
+
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+DEBUG = os.environ.get('DJANGO_DEBUG') == 'True'
+
 from pathlib import Path
+import os # Importe 'os' para manipulação de caminhos e variáveis de ambiente
+from django.core.exceptions import ImproperlyConfigured # Para tratamento de erros de variáveis de ambiente
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Função auxiliar para obter variáveis de ambiente
+def get_env_variable(var_name):
+    try:
+        return os.environ[var_name]
+    except KeyError:
+        error_msg = f"Defina a variável de ambiente {var_name}"
+        raise ImproperlyConfigured(error_msg)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-_garv=!#u+!ub@t=95wb9yd)*ya+w_8k+54@vndtlx_#h^cd$5'
+# Use variáveis de ambiente para a SECRET_KEY em produção
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-_garv=!#u+!ub@t=95wb9yd)*ya+w_8k+54@vndtlx_#h^cd$5')
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Use variáveis de ambiente para DEBUG
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS para produção
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+if not DEBUG:
+    # Em produção, adicione os domínios do seu site aqui
+    ALLOWED_HOSTS.append('.seusitedaqui.com') 
 
 
 # Application definition
@@ -37,7 +66,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'store',
+    'store', # Seu aplicativo de loja
 ]
 
 MIDDLEWARE = [
@@ -53,12 +82,10 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'jecistore_project.urls'
 
 
-import os # Certifique-se de que 'os' está importado no topo do arquivo
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')], # <--- Adicione esta linha
+        'DIRS': [os.path.join(BASE_DIR, 'templates')], # Adicione esta linha para templates globais
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -107,9 +134,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-br' # Alterado para Português do Brasil
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Sao_Paulo' # Alterado para o fuso horário de São Paulo
 
 USE_I18N = True
 
@@ -120,11 +147,24 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Onde os arquivos estáticos serão coletados em produção
+
+
+# Media files (user-uploaded files, like product images)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Onde as imagens de produtos serão salvas
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Configurações para autenticação de usuário
+LOGIN_REDIRECT_URL = 'home' # Redireciona para a home após o login
+LOGOUT_REDIRECT_URL = 'home' # Redireciona para a home após o logout
 
-# jecistore_project/settings.py
+# Manipuladores de erro personalizados para páginas 404 e 500
+# Certifique-se de que essas views existam e estejam configuradas em urls.py
+HANDLER404 = 'store.views.custom_404_view'
+HANDLER500 = 'store.views.custom_500_view'

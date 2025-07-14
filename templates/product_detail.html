@@ -16,10 +16,14 @@
             <p class="text-gray-600 leading-relaxed mb-8 text-lg">{{ product.description }}</p>
             
             <div class="flex flex-col sm:flex-row gap-4">
-                <!-- Botão "Adicionar ao Carrinho" - Funcionalidade de carrinho não implementada neste exemplo -->
-                <button class="flex-1 bg-pink-600 text-white py-3 px-6 rounded-full text-lg font-semibold hover:bg-pink-700 transition duration-300 shadow-lg transform hover:-translate-y-1">
-                    Adicionar ao Carrinho
-                </button>
+                <!-- Formulário "Adicionar ao Carrinho" -->
+                <form action="{% url 'store:add_to_cart' product.pk %}" method="POST" class="flex-1 flex items-center gap-2">
+                    {% csrf_token %}
+                    <input type="number" name="quantity" value="1" min="1" class="w-20 p-2 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    <button type="submit" class="flex-1 bg-pink-600 text-white py-3 px-6 rounded-full text-lg font-semibold hover:bg-pink-700 transition duration-300 shadow-lg transform hover:-translate-y-1">
+                        Adicionar ao Carrinho
+                    </button>
+                </form>
 
                 <!-- Link para contato via WhatsApp sobre este produto -->
                 <!-- Substitua '5511999999999' pelo seu número de WhatsApp -->
