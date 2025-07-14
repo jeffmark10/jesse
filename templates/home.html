@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <section class="relative text-center py-16 md:py-24 bg-gradient-to-br from-pink-300 to-stone-200 text-gray-800 rounded-3xl shadow-2xl overflow-hidden mb-12">
+        <div class="absolute inset-0 bg-pattern opacity-10"></div>
+        <div class="relative z-10">
+            <h1 class="text-5xl md:text-6xl font-extrabold mb-4 animate-fade-in">Bem-vindo à Jeci Store!</h1>
+            <p class="text-xl md:text-2xl mb-8 max-w-3xl mx-auto animate-fade-in-delay-1 text-gray-700">Descubra as sandálias e camisetas mais estilosas e confortáveis para você brilhar em qualquer ocasião.</p>
+            <a href="{% url 'store:product_list' %}" class="bg-white text-pink-600 hover:bg-gray-100 font-bold py-3 px-8 rounded-full shadow-xl transition duration-300 ease-in-out transform hover:scale-105 hover:-translate-y-1 inline-block animate-fade-in-delay-2">
+                Explorar Produtos
+            </a>
+        </div>
+    </section>
+
+    <section class="py-12">
+        <h2 class="text-4xl font-bold text-center text-gray-700 mb-10">Produtos em Destaque</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {% if featured_products %}
+                {% for product in featured_products %}
+                    <div class="group bg-white rounded-xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-105 hover:shadow-xl relative">
+                        <a href="{% url 'store:product_detail' pk=product.pk %}">
+                            {% if product.image %}
+                                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-64 object-cover transition duration-300 group-hover:opacity-85">
+                            {% else %}
+                                <img src="https://placehold.co/400x400/cccccc/ffffff?text=Sem+Imagem" alt="Sem Imagem" class="w-full h-64 object-cover">
+                            {% endif %}
+                        </a>
+                        <div class="p-6">
+                            <h3 class="text-xl font-semibold text-gray-700 mb-2 group-hover:text-pink-600 transition duration-200">{{ product.name }}</h3>
+                            <p class="text-gray-600 text-lg font-bold">R$ {{ product.price|floatformat:2 }}</p>
+                            <a href="{% url 'store:product_detail' pk=product.pk %}" class="mt-4 inline-block bg-pink-600 text-white py-2 px-4 rounded-full hover:bg-pink-700 transition duration-300 text-sm">
+                                Ver Detalhes
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-center text-gray-600 col-span-full py-8 text-xl">Nenhum produto em destaque no momento. Adicione produtos no painel de administração!</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="py-12 bg-pink-100 rounded-2xl shadow-lg text-center mt-12 animate-fade-in-delay-2">
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-700 mb-4">Qualidade e Estilo para Você!</h2>
+        <p class="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto px-4">Na Jeci Store, você encontra sandálias confortáveis e camisetas com designs exclusivos. Conforto e moda andam juntos aqui, com a garantia de peças que duram e encantam.</p>
+    </section>
+{% endblock %}
