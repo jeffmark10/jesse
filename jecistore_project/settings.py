@@ -22,7 +22,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-_garv=!#u+!ub@
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true' # Garante que 'true' ou 'False' funciona
 
 # ALLOWED_HOSTS para produção
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'jecy.onrender.com'] # Corrigido: Removido aspas ausentes
 if not DEBUG:
     # Em produção, adicione os domínios do seu site aqui
     ALLOWED_HOSTS.append('.seusitedaqui.com') 
@@ -78,8 +78,12 @@ WSGI_APPLICATION = 'jecistore_project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME', 'jecy_dados'), # Nome do banco de dados
+        'USER': os.environ.get('DB_USER', 'jeffmark10'), # Usuário do banco de dados
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'JFmarques500.'), # Senha do banco de dados
+        'HOST': os.environ.get('DB_HOST', 'localhost'),  # Geralmente 'localhost' se o DB estiver no mesmo servidor
+        'PORT': os.environ.get('DB_PORT', '5432'),        # Porta padrão do PostgreSQL é 5432
     }
 }
 
