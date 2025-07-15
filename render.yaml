@@ -21,14 +21,38 @@ services:
         value: "False" # <--- SEMPRE defina como "False" em produção
       - key: WEB_CONCURRENCY # Número de workers Gunicorn (ajuste com base nos núcleos da CPU do seu servidor)
         value: 4 # Um bom ponto de partida, ajuste conforme necessário
-      - key: DATABASE_URL # Variável de ambiente para a URL completa do banco de dados
+      # O Render pode injetar a URL completa do banco de dados, que django-environ usa.
+      - key: DATABASE_URL # <--- NOVO: Variável de ambiente para a URL completa do banco de dados
         fromDatabase:
           name: jecistore-database # Nome do banco de dados PostgreSQL
           property: connectionString # Obtém a string de conexão completa
+      # As variáveis DB_NAME, DB_USER, etc. não são estritamente necessárias se DATABASE_URL for usada,
+      # mas o django-environ pode usá-las como fallback se DATABASE_URL não estiver presente.
+      # Para clareza, você pode removê-las se usar DATABASE_URL.
+      # - key: DB_NAME
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: database
+      # - key: DB_USER
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: user
+      # - key: DB_PASSWORD
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: password
+      # - key: DB_HOST
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: host
+      # - key: DB_PORT
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: port
       - key: STORE_WHATSAPP_NUMBER # Número do WhatsApp da loja
         value: "5561998504516" # Seu número de WhatsApp (com código do país e DDD)
-      - key: DJANGO_ALLOWED_HOSTS # Para ALLOWED_HOSTS em produção
-        value: jecy.onrender.com # Use vírgula para múltiplos hosts: "jecy.onrender.com,meudominio.com"
+      - key: DJANGO_ALLOWED_HOSTS # <--- NOVO: Para ALLOWED_HOSTS em produção
+        value: jecy.onrender.com # Adicione outros domínios separados por vírgula (ex: seusitedaqui.com,www.seusitedaqui.com)
 
 databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
