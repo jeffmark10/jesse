@@ -14,35 +14,21 @@ services:
     startCommand: gunicorn jecistore_project.wsgi:application --bind 0.0.0.0:$PORT
     envVars: # Variáveis de ambiente para o seu aplicativo Django
       - key: PYTHON_VERSION # Define a versão do Python
-        value: 3.10.12 # Altere para a versão do Python que você está usando
+        value: 3.13.4 # <--- ALINHE ESTE VALOR com a versão do Python que você está usando localmente
       - key: DJANGO_SECRET_KEY # Chave secreta do Django
         generateValue: true # O Render pode gerar um valor seguro para você
       - key: DJANGO_DEBUG # Modo de depuração do Django
-        value: "False" # Sempre defina como "False" em produção
+        value: "False" # <--- SEMPRE defina como "False" em produção
       - key: WEB_CONCURRENCY # Número de workers Gunicorn (ajuste com base nos núcleos da CPU do seu servidor)
         value: 4 # Um bom ponto de partida, ajuste conforme necessário
-      - key: DB_NAME # Nome do banco de dados (referencia o banco de dados PostgreSQL definido abaixo)
+      - key: DATABASE_URL # Variável de ambiente para a URL completa do banco de dados
         fromDatabase:
           name: jecistore-database # Nome do banco de dados PostgreSQL
-          property: database
-      - key: DB_USER # Usuário do banco de dados
-        fromDatabase:
-          name: jecistore-database
-          property: user
-      - key: DB_PASSWORD # Senha do banco de dados
-        fromDatabase:
-          name: jecistore-database
-          property: password
-      - key: DB_HOST # Host do banco de dados
-        fromDatabase:
-          name: jecistore-database
-          property: host
-      - key: DB_PORT # Porta do banco de dados
-        fromDatabase:
-          name: jecistore-database
-          property: port
+          property: connectionString # Obtém a string de conexão completa
       - key: STORE_WHATSAPP_NUMBER # Número do WhatsApp da loja
         value: "5561998504516" # Seu número de WhatsApp (com código do país e DDD)
+      - key: DJANGO_ALLOWED_HOSTS # Para ALLOWED_HOSTS em produção
+        value: jecy.onrender.com # Use vírgula para múltiplos hosts: "jecy.onrender.com,meudominio.com"
 
 databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
