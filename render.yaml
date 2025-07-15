@@ -58,3 +58,4 @@ databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
     type: postgres # Tipo de banco de dados: PostgreSQL
     plan: free # Plano do banco de dados (pode ser 'standard' para mais recursos em produção)
+
