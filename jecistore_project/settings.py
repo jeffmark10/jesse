@@ -25,17 +25,19 @@ DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
 # ALLOWED_HOSTS para produção
 # Sempre inclua localhost e 127.0.0.1 para desenvolvimento local.
-# Para produção, leia de DJANGO_ALLOWED_HOSTS (que o Render injeta) ou use um padrão.
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+# Adicione o domínio do Render diretamente aqui, pois ele é fixo e obrigatório.
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'jecy.onrender.com']
 
-# Se não estiver em modo de depuração (ou seja, em produção), adicione os hosts de produção.
+# Se não estiver em modo de depuração (ou seja, em produção), adicione hosts de produção adicionais.
 if not DEBUG:
     # Adiciona hosts da variável de ambiente DJANGO_ALLOWED_HOSTS (lista separada por vírgulas)
+    # Certifique-se de que DJANGO_ALLOWED_HOSTS está definido no Render
     ALLOWED_HOSTS.extend(env.list('DJANGO_ALLOWED_HOSTS', default=[]))
-    # Garante que o domínio do Render está sempre incluído em produção
-    RENDER_HOST = 'jecy.onrender.com'
-    if RENDER_HOST not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append(RENDER_HOST)
+    # A linha abaixo era redundante, já que 'jecy.onrender.com' já foi adicionado acima.
+    # Pode ser removida para clareza.
+    # RENDER_HOST = 'jecy.onrender.com'
+    # if RENDER_HOST not in ALLOWED_HOSTS:
+    #     ALLOWED_HOSTS.append(RENDER_HOST)
 
 # Application definition
 INSTALLED_APPS = [
@@ -147,5 +149,3 @@ if not DEBUG:
             print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
-
-
