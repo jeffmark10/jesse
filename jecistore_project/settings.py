@@ -87,7 +87,7 @@ WSGI_APPLICATION = 'jecistore_project.wsgi.application'
 # que o Render fornece (DATABASE_URL).
 # O valor padrão é para desenvolvimento local com PostgreSQL.
 DATABASES = {
-    'default': env.db(default='postgres://jeffmark10:JFmarques500.@localhost:5432/jecy_dados'),
+    'default': env.db(),
 }
 
 # Password validation
