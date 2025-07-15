@@ -217,19 +217,9 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5H3m4 8V5m0 8a2 2 0 100 4m0-4a2 2 0 110 4m-8 0a2 2 0 100 4m0-4a2 2 0 110 4" />
                         </svg>
-                        {% if request.user.is_authenticated and request.user.cart.items.count > 0 %}
-                            <span class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">{{ request.user.cart.items.count }}</span>
-                        {% elif not request.user.is_authenticated %}
-                            {% with session_cart_id=request.session.cart_id %}
-                                {% if session_cart_id %}
-                                    {% comment %}
-                                        Para exibir a contagem do carrinho de sessão sem estar logado,
-                                        você precisaria de um context processor ou de uma chamada AJAX.
-                                        Por simplicidade, aqui apenas indica que há um carrinho.
-                                    {% endcomment %}
-                                    <span class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">!</span>
-                                {% endif %}
-                            {% endwith %}
+                        {# Usa a variável 'cart_items_count' do context processor #}
+                        {% if cart_items_count > 0 %}
+                            <span class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">{{ cart_items_count }}</span>
                         {% endif %}
                     </a>
 

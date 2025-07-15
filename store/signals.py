@@ -19,7 +19,7 @@ urlpatterns = [
     path('carrinho/', views.view_cart, name='view_cart'),
     path('carrinho/atualizar/<int:item_id>/', views.update_cart_item, name='update_cart_item'),
     path('carrinho/remover/<int:item_id>/', views.remove_from_cart, name='remove_from_cart'),
-    path('carrinho/finalizar-whatsapp/', views.checkout_whatsapp_view, name='checkout_whatsapp'), # Esta linha é crucial!
+    path('carrinho/finalizar-whatsapp/', views.checkout_whatsapp_view, name='checkout_whatsapp'), # NOVO: Rota para finalizar compra via WhatsApp
 
     # Rotas de Autenticação e Perfil
     path('registrar/', views.signup_view, name='signup'),

@@ -43,7 +43,8 @@ class ProductForm(forms.ModelForm):
         model = Product
         # Campos que o vendedor poderá preencher.
         # 'seller' NÃO está incluído aqui, pois será preenchido automaticamente pela view (ou admin).
-        fields = ['name', 'description', 'price', 'image', 'category', 'stock', 'is_featured']
+        # NOVO: Adicionado 'tracking_code'
+        fields = ['name', 'description', 'price', 'image', 'category', 'stock', 'is_featured', 'tracking_code']
         
         # Personalização dos widgets para aplicar classes Tailwind CSS.
         # Isso ajuda a estilizar os campos do formulário para corresponder ao design do seu site.
@@ -74,7 +75,12 @@ class ProductForm(forms.ModelForm):
             }),
             'is_featured': forms.CheckboxInput(attrs={
                 'class': 'form-checkbox h-5 w-5 text-pink-600 ml-2' # Ajuste de estilo para checkbox.
-            }) 
+            }),
+            # NOVO: Widget para o campo tracking_code
+            'tracking_code': forms.TextInput(attrs={
+                'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200', 
+                'placeholder': 'Ex: ABC123XYZ'
+            }),
         }
         # Rótulos amigáveis para os campos do formulário, exibidos para o usuário.
         labels = {
@@ -84,5 +90,6 @@ class ProductForm(forms.ModelForm):
             'image': "Imagem do Produto",
             'category': "Categoria",
             'stock': "Estoque",
-            'is_featured': "Destacar na Página Inicial?"
+            'is_featured': "Destacar na Página Inicial?",
+            'tracking_code': "Código de Rastreamento (Opcional)" # NOVO: Rótulo
         }

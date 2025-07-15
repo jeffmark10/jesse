@@ -32,25 +32,28 @@
                 </li>
             </ul>
             <p class="mt-8">
-                Ou utilize o formulário abaixo para nos enviar uma mensagem (funcionalidade de formulário não implementada neste exemplo, mas você pode adicionar aqui).
+                Utilize o formulário abaixo para nos enviar uma mensagem:
             </p>
         </div>
 
-        <!-- Exemplo de formulário de contato (apenas HTML, sem backend de envio) -->
+        <!-- Formulário de contato (agora funcional, renderizado pelo Django) -->
         <div class="max-w-md mx-auto bg-stone-50 p-8 rounded-xl shadow-inner border border-stone-200">
-            <form action="#" method="POST">
-                <div class="mb-5">
-                    <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Seu Nome:</label>
-                    <input type="text" id="name" name="name" class="shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200" placeholder="Seu nome completo">
-                </div>
-                <div class="mb-5">
-                    <label for="email" class="block text-gray-700 text-sm font-bold mb-2">Seu E-mail:</label>
-                    <input type="email" id="email" name="email" class="shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200" placeholder="seu.email@exemplo.com">
-                </div>
-                <div class="mb-6">
-                    <label for="message" class="block text-gray-700 text-sm font-bold mb-2">Sua Mensagem:</label>
-                    <textarea id="message" name="message" rows="6" class="shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200" placeholder="Escreva sua mensagem aqui..."></textarea>
-                </div>
+            <form action="" method="POST"> {# Ação vazia para postar para a mesma URL #}
+                {% csrf_token %} {# Token de segurança obrigatório no Django para formulários POST #}
+                
+                {% for field in form %}
+                    <div class="mb-5">
+                        <label for="{{ field.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">{{ field.label }}:</label>
+                        {{ field }} {# Renderiza o campo do formulário (input, textarea, select, etc.) #}
+                        {% if field.help_text %}
+                            <p class="text-gray-500 text-xs italic mt-1">{{ field.help_text }}</p>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <p class="text-red-500 text-xs italic mt-1">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+                
                 <div class="flex items-center justify-center">
                     <button type="submit" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-6 rounded-full focus:outline-none focus:shadow-outline transition duration-300 transform hover:-translate-y-1 shadow-lg">
                         Enviar Mensagem

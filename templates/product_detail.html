@@ -22,6 +22,11 @@
                 <p class="text-lg text-red-600 font-semibold mb-4">Esgotado!</p>
             {% endif %}
 
+            <!-- NOVO: Exibir o código de rastreamento do produto -->
+            {% if product.tracking_code %}
+                <p class="text-lg text-gray-700 font-semibold mb-4">Código de Rastreamento: <span class="text-blue-600">{{ product.tracking_code }}</span></p>
+            {% endif %}
+
             <div class="flex flex-col sm:flex-row gap-4">
                 <!-- Formulário "Adicionar ao Carrinho" -->
                 <form action="{% url 'store:add_to_cart' product.pk %}" method="POST" class="flex-1 flex items-center gap-2">
@@ -34,7 +39,7 @@
 
                 <!-- Link para contato via WhatsApp sobre este produto -->
                 <!-- Substitua '5511999999999' pelo seu número de WhatsApp -->
-                <a href="https://wa.me/5511999999999?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20produto:%20{{ product.name }}%20(ID:%20{{ product.pk }})!" 
+                <a href="https://wa.me/5511999999999?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20produto:%20{{ product.name }}%20(ID:%20{{ product.pk }})!{% if product.tracking_code %}%0ACódigo%20de%20Rastreamento:%20{{ product.tracking_code }}{% endif %}" 
                    target="_blank" 
                    class="flex-1 inline-flex items-center justify-center bg-green-500 text-white py-3 px-6 rounded-full text-lg font-semibold hover:bg-green-600 transition duration-300 shadow-lg transform hover:-translate-y-1">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" class="w-5 h-5 mr-2">

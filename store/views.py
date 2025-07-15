@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required # Para proteger views
 from django.contrib import messages # Para mensagens de feedback
 from django.db.models import Q # Para funcionalidade de busca
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger # Para paginação
+from urllib.parse import quote # Importa quote para codificar URLs
 
 from .models import Product, Category, Cart, CartItem, Profile # Importa os novos modelos de carrinho e Profile
 from .forms import ContactForm, ProductForm # Importa o formulário de contato e ProductForm
@@ -35,60 +36,83 @@ def get_or_create_cart(request):
     """
     Obtém o carrinho do usuário logado ou da sessão.
     Cria um novo carrinho se não existir.
+    Lida com a migração de itens de um carrinho de sessão para um carrinho de usuário.
     """
+    session_key = request.session.session_key
+    if not session_key:
+        request.session.save() # Garante que uma session_key exista
+        session_key = request.session.session_key # Pega a chave recém-criada
+
     if request.user.is_authenticated:
-        # Tenta obter o carrinho do usuário logado
-        cart, created = Cart.objects.get_or_create(user=request.user)
-        # Se houver um session_key e o carrinho foi criado agora, tenta migrar itens da sessão
-        if created and request.session.session_key:
-            session_cart = Cart.objects.filter(session_key=request.session.session_key).first()
-            if session_cart:
-                for item in session_cart.items.all():
-                    # Tenta adicionar o item ao carrinho do usuário
-                    user_cart_item, item_created = CartItem.objects.get_or_create(
-                        cart=cart,
-                        product=item.product,
-                        defaults={'quantity': item.quantity}
-                    )
-                    if not item_created:
-                        user_cart_item.quantity += item.quantity
+        # Tenta obter ou criar o carrinho para o usuário logado
+        user_cart, user_cart_created = Cart.objects.get_or_create(user=request.user)
+
+        # Se houver um cart_id na sessão, tenta migrar os itens do carrinho de sessão
+        session_cart = None
+        if 'cart_id' in request.session:
+            try:
+                # Busca o carrinho de sessão pela ID e pela session_key para maior segurança
+                session_cart = Cart.objects.get(id=request.session['cart_id'], session_key=session_key)
+            except Cart.DoesNotExist:
+                # Se o carrinho de sessão não for encontrado, limpa a session_key inválida
+                del request.session['cart_id']
+                session_cart = None
+
+        if session_cart and session_cart != user_cart: # Garante que não é o mesmo carrinho
+            for item in session_cart.items.all():
+                # Tenta adicionar o item ao carrinho do usuário
+                user_cart_item, item_created = CartItem.objects.get_or_create(
+                    cart=user_cart,
+                    product=item.product,
+                    defaults={'quantity': item.quantity}
+                )
+                if not item_created:
+                    # Se o item já existe no carrinho do usuário, atualiza a quantidade
+                    # Verifica se a nova quantidade excede o estoque
+                    new_quantity = user_cart_item.quantity + item.quantity
+                    if new_quantity <= item.product.stock:
+                        user_cart_item.quantity = new_quantity
                         user_cart_item.save()
-                session_cart.delete() # Remove o carrinho da sessão após a migração
-                if 'cart_id' in request.session: # Garante que a chave exista antes de tentar deletar
-                    del request.session['cart_id'] # Limpa a session_key do carrinho antigo
-        return cart
+                    else:
+                        messages.warning(request, f"Não foi possível migrar todas as unidades de '{item.product.name}' devido a limite de estoque.")
+                item.delete() # Remove o item do carrinho da sessão após a migração
+            
+            # Após migrar todos os itens, remove o carrinho de sessão (se estiver vazio)
+            if session_cart.items.count() == 0:
+                session_cart.delete()
+            
+            # Limpa a cart_id da sessão, pois agora o usuário tem um carrinho persistente
+            if 'cart_id' in request.session:
+                del request.session['cart_id']
+        
+        return user_cart
     else:
-        # Para usuários não logados, usa a session_key
-        if not request.session.session_key:
-            request.session.save() # Garante que uma session_key exista
+        # Para usuários não logados, usa ou cria um carrinho de sessão
         cart_id = request.session.get('cart_id')
+        cart = None
         if cart_id:
             try:
-                cart = Cart.objects.get(id=cart_id)
+                # Tenta buscar o carrinho pela ID e pela session_key para maior segurança
+                cart = Cart.objects.get(id=cart_id, session_key=session_key)
             except Cart.DoesNotExist:
-                cart = Cart.objects.create(session_key=request.session.session_key)
-                request.session['cart_id'] = cart.id
-        else:
-            cart = Cart.objects.create(session_key=request.session.session_key)
-            request.session['cart_id'] = cart.id
+                pass # O carrinho não existe ou a session_key não corresponde, cria um novo
+
+        if not cart:
+            cart = Cart.objects.create(session_key=session_key)
+            request.session['cart_id'] = cart.id # Armazena a ID do novo carrinho na sessão
+        
         return cart
 
 # NOVO DECORADOR: Garante que apenas vendedores possam acessar a view
 def seller_required(function):
     def wrap(request, *args, **kwargs):
-        # Primeiro, verifica se o usuário está logado (reutiliza a lógica de login_required)
+        # Primeiro, verifica se o usuário está logado
         if not request.user.is_authenticated:
             messages.error(request, "Você precisa estar logado para acessar esta área.")
             return redirect('login') # Redireciona para a página de login
 
-        # Tenta obter o perfil do usuário
-        try:
-            profile = request.user.profile
-        except Profile.DoesNotExist:
-            # Se o perfil não existe, cria um novo perfil e define como não-vendedor
-            profile = Profile.objects.create(user=request.user, is_seller=False)
-            messages.warning(request, "Seu perfil foi criado. Você não tem permissão de vendedor.")
-            return redirect('store:user_profile') # Redireciona para o perfil
+        # O Profile é garantido de existir pelo sinal post_save no models.py
+        profile = request.user.profile 
 
         # Verifica se o usuário é um vendedor
         if not profile.is_seller:
@@ -156,7 +180,9 @@ def product_list_view(request, category_slug=None):
         products = products.order_by('-price')
     elif sort_by == 'name_desc':
         products = products.order_by('-name')
-    else: # 'name_asc' ou qualquer outro valor padrão
+    elif sort_by == 'created_at': # Adicionado para ordenar por mais recentes
+        products = products.order_by('-created_at')
+    else: # 'name' ou qualquer outro valor padrão
         products = products.order_by('name')
 
     # Paginação
@@ -318,6 +344,49 @@ def remove_from_cart(request, item_id):
     messages.info(request, f"'{product_name}' removido do carrinho.")
     return redirect('store:view_cart')
 
+# NOVO: View para finalizar a compra e gerar o link do WhatsApp
+def checkout_whatsapp_view(request):
+    cart = get_or_create_cart(request)
+    
+    if not cart.items.exists():
+        messages.warning(request, "Seu carrinho está vazio. Adicione produtos antes de finalizar a compra.")
+        return redirect('store:view_cart')
+
+    # Número de WhatsApp da loja (substituído pelo seu novo número)
+    whatsapp_number = "5561998504516" 
+
+    message_parts = [
+        "Olá, gostaria de finalizar meu pedido na Jeci Store!",
+        "Itens no carrinho:"
+    ]
+    tracking_codes = []
+
+    for item in cart.items.all():
+        message_parts.append(f"- {item.quantity}x {item.product.name} (R${item.product.price:.2f})")
+        if item.product.tracking_code:
+            tracking_codes.append(f"    Código de Rastreamento: {item.product.tracking_code}")
+    
+    if tracking_codes:
+        message_parts.append("\nCódigos de Rastreamento dos Produtos (para referência):")
+        message_parts.extend(tracking_codes)
+    
+    message_parts.append(f"\nValor Total: R${cart.get_total_price():.2f}")
+    message_parts.append("\nPor favor, me ajude a prosseguir com o pagamento e envio.")
+
+    full_message = "\n".join(message_parts)
+    
+    # Codifica a mensagem para URL
+    encoded_message = quote(full_message)
+    
+    whatsapp_url = f"https://wa.me/{whatsapp_number}?text={encoded_message}"
+    
+    # Opcional: Limpar o carrinho após "finalizar" (neste caso, iniciar a conversa)
+    # cart.items.all().delete()
+    # messages.success(request, "Seu pedido foi iniciado via WhatsApp. Em breve entraremos em contato!")
+
+    return redirect(whatsapp_url)
+
+
 # --- Views de Autenticação e Perfil (Básicas) ---
 
 def signup_view(request):
@@ -326,6 +395,7 @@ def signup_view(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            # O sinal post_save em store.signals.py garantirá que um Profile seja criado para este usuário.
             # login(request, user) # Opcional: logar o usuário automaticamente após o registro
             messages.success(request, 'Sua conta foi criada com sucesso! Faça login para continuar.')
             return redirect('login') # Redireciona para a página de login
@@ -456,4 +526,3 @@ def delete_product_view(request, pk):
     
     messages.error(request, "Método inválido para exclusão. Confirme a exclusão via POST.")
     return redirect('store:my_products')
-

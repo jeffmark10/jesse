@@ -101,7 +101,7 @@ class Product(models.Model):
         verbose_name="Categoria"
     )
     
-    # NOVO CAMPO: Vincula o produto a um vendedor (um usuário do Django).
+    # Vincula o produto a um vendedor (um usuário do Django).
     # Se o vendedor for excluído, os produtos dele não serão excluídos, apenas o campo 'seller' será nulo (SET_NULL).
     seller = models.ForeignKey(
         User,
@@ -114,6 +114,18 @@ class Product(models.Model):
     
     # Campo para controlar o estoque do produto. Valor padrão é 0.
     stock = models.PositiveIntegerField(default=0, verbose_name="Estoque")
+
+    # NOVO CAMPO: Código de rastreamento para o produto.
+    # Em um sistema real, o código de rastreamento geralmente é gerado por pedido/envio,
+    # não por produto. Aqui, para simplificar, ele é associado ao tipo de produto.
+    # Se você precisar de um código único por item enviado, considere um modelo de Pedido/ItemPedido.
+    tracking_code = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        unique=True, # Garante que cada código de rastreamento seja único
+        verbose_name="Código de Rastreamento"
+    )
 
     # Campo booleano para indicar se o produto deve ser exibido na página inicial como destaque.
     is_featured = models.BooleanField(default=False, verbose_name="Destaque na Home")

@@ -31,6 +31,10 @@
                                     {% if item.quantity > item.product.stock %}
                                         <p class="text-red-500 text-xs mt-1">Atenção: A quantidade excede o estoque disponível ({{ item.product.stock }}).</p>
                                     {% endif %}
+                                    {# NOVO: Exibir o código de rastreamento do produto no carrinho #}
+                                    {% if item.product.tracking_code %}
+                                        <p class="text-xs text-gray-500 mt-1">Cód. Rastreamento: <span class="font-semibold">{{ item.product.tracking_code }}</span></p>
+                                    {% endif %}
                                 </td>
                                 <td class="py-3 px-6 text-center">R$ {{ item.product.price|floatformat:2 }}</td>
                                 <td class="py-3 px-6 text-center">
@@ -62,9 +66,10 @@
             </div>
 
             <div class="flex justify-center mt-10">
-                <button class="bg-green-600 text-white py-3 px-8 rounded-full text-xl font-semibold hover:bg-green-700 transition duration-300 shadow-lg transform hover:-translate-y-1">
-                    Finalizar Compra (Checkout)
-                </button>
+                {# NOVO: Botão "Finalizar Compra" agora aponta para a nova view de checkout #}
+                <a href="{% url 'store:checkout_whatsapp' %}" class="bg-green-600 text-white py-3 px-8 rounded-full text-xl font-semibold hover:bg-green-700 transition duration-300 shadow-lg transform hover:-translate-y-1">
+                    Finalizar Compra (WhatsApp)
+                </a>
             </div>
         {% else %}
             <div class="text-center text-gray-600 py-12">
