@@ -3,34 +3,39 @@ import os
 from pathlib import Path
 import environ # Importa django-environ
 
-# Inicializa django-environ
-env = environ.Env(
-    DJANGO_DEBUG=(bool, True), # Padrão True para DEV local
-    DJANGO_SECRET_KEY=(str, 'django-insecure-_garv=!#u+!ub@t=95wb9yd)*ya+w_8k+54@vndtlx_#h^cd$5'),
-    DATABASE_URL=(str, 'postgres://jeffmark10:JFmarques500.@localhost:5432/jecy_dados'),
-    STORE_WHATSAPP_NUMBER=(str, '5511999999999'),
-    DJANGO_ALLOWED_HOSTS=(list, []), # Padrão lista vazia para hosts adicionais
-)
-
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 1. Inicializa django-environ.
+#    Não definimos valores padrão aqui para as variáveis que esperamos do ambiente de produção.
+#    Isso força o django-environ a procurar em os.environ ou no .env.
+env = environ.Env()
+
+# 2. Lendo o arquivo .env se existir (apenas para desenvolvimento local).
+#    No Render, as variáveis de ambiente da plataforma terão precedência sobre este arquivo.
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-SECRET_KEY = env('DJANGO_SECRET_KEY')
-DEBUG = env('DJANGO_DEBUG')
+# SECURITY WARNING: keep the secret key used in production secret!
+# Se DJANGO_SECRET_KEY não for encontrada no ambiente, use o valor padrão.
+SECRET_KEY = env('DJANGO_SECRET_KEY', default='django-insecure-_garv=!#u+!ub@t=95wb9yd)*ya+w_8k+54@vndtlx_#h^cd$5')
 
-# Define ALLOWED_HOSTS
-# Sempre inclua localhost e 127.0.0.1 para desenvolvimento local
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] 
+# SECURITY WARNING: don't run with debug turned on in production!
+# Força a leitura de DJANGO_DEBUG como booleano. Padrão False para produção.
+DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
-# Adicione o domínio do Render e quaisquer outros hosts de produção.
-# Isso garante que 'jecy.onrender.com' esteja sempre na lista em produção,
-# independentemente do valor de DEBUG (embora DEBUG deva ser False em prod).
-RENDER_HOST = 'jecy.onrender.com'
-if RENDER_HOST not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(RENDER_HOST)
+# ALLOWED_HOSTS para produção
+# Sempre inclua localhost e 127.0.0.1 para desenvolvimento local.
+# Para produção, leia de DJANGO_ALLOWED_HOSTS (que o Render injeta) ou use um padrão.
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
-# Adicione hosts adicionais que podem vir de uma variável de ambiente (para domínios personalizados)
-ALLOWED_HOSTS.extend(env.list('DJANGO_ALLOWED_HOSTS'))
+# Se não estiver em modo de depuração (ou seja, em produção), adicione os hosts de produção.
+if not DEBUG:
+    # Adiciona hosts da variável de ambiente DJANGO_ALLOWED_HOSTS (lista separada por vírgulas)
+    ALLOWED_HOSTS.extend(env.list('DJANGO_ALLOWED_HOSTS', default=[]))
+    # Garante que o domínio do Render está sempre incluído em produção
+    RENDER_HOST = 'jecy.onrender.com'
+    if RENDER_HOST not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(RENDER_HOST)
 
 # Application definition
 INSTALLED_APPS = [
@@ -78,8 +83,9 @@ WSGI_APPLICATION = 'jecistore_project.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 # django-environ pode configurar o banco de dados diretamente de uma URL de banco de dados
 # que o Render fornece (DATABASE_URL).
+# O valor padrão é para desenvolvimento local com PostgreSQL.
 DATABASES = {
-    'default': env.db(), # Isso lerá DATABASE_URL ou as variáveis DB_NAME, DB_USER, etc.
+    'default': env.db(default='postgres://jeffmark10:JFmarques500.@localhost:5432/jecy_dados'),
 }
 
 # Password validation
@@ -128,7 +134,7 @@ HANDLER404 = 'store.views.custom_404_view'
 HANDLER500 = 'store.views.custom_500_view'
 
 # Exemplo: Acessando a variável do WhatsApp (se for definida como env)
-STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER')
+STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER', default='5511999999999')
 
 # Alerta em produção se DEBUG estiver ativado (apenas para depuração no Render)
 if not DEBUG:
@@ -141,4 +147,5 @@ if not DEBUG:
             print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
+
 
