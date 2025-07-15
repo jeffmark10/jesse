@@ -14,7 +14,7 @@ services:
     startCommand: gunicorn jecistore_project.wsgi:application --bind 0.0.0.0:$PORT
     envVars: # Variáveis de ambiente para o seu aplicativo Django
       - key: PYTHON_VERSION # Define a versão do Python
-        value: 3.13.4 # <--- ALINHE ESTE VALOR com a versão do Python que você está usando localmente
+        value: 3.11.9 # <--- ALINHE ESTE VALOR com a versão do Python que você está usando localmente
       - key: DJANGO_SECRET_KEY # Chave secreta do Django
         generateValue: true # O Render pode gerar um valor seguro para você
       - key: DJANGO_DEBUG # Modo de depuração do Django
