@@ -1,35 +1,52 @@
 # jecistore_project/settings.py
 import os
-from dotenv import load_dotenv
 from pathlib import Path
-from django.core.exceptions import ImproperlyConfigured # Para tratamento de erros de variáveis de ambiente
+import environ # Importa django-environ
 
-load_dotenv() # Carrega as variáveis do arquivo .env
+# Inicializa django-environ
+# Define os tipos e valores padrão para as variáveis de ambiente.
+# Os valores padrão serão usados se as variáveis não forem definidas no ambiente (e.g., localmente sem .env).
+# No Render, as variáveis injetadas pela plataforma SOBRESCREVERÃO esses padrões.
+env = environ.Env(
+    # DEBUG será True por padrão em desenvolvimento local, mas False no Render.
+    DJANGO_DEBUG=(bool, True),
+    DJANGO_SECRET_KEY=(str, 'django-insecure-_garv=!#u+!ub@t=95wb9yd)*ya+w_8k+54@vndtlx_#h^cd$5'),
+    # Use DATABASE_URL para uma configuração de banco de dados mais simples.
+    # O Render fornece uma DATABASE_URL completa.
+    # O valor padrão é para desenvolvimento local com PostgreSQL.
+    DATABASE_URL=(str, 'postgres://jeffmark10:JFmarques500.@localhost:5432/jecy_dados'),
+    STORE_WHATSAPP_NUMBER=(str, '5511999999999'), # Seu número de WhatsApp para DEV
+    # Permite definir ALLOWED_HOSTS via variável de ambiente em produção.
+    DJANGO_ALLOWED_HOSTS=(list, []), 
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# Lendo o arquivo .env se existir (apenas para desenvolvimento local).
+# No Render, as variáveis de ambiente da plataforma terão precedência.
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Use variáveis de ambiente para a SECRET_KEY em produção
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-_garv=!#u+!ub@t=95wb9yd)*ya+w_8k+54@vndtlx_#h^cd$5')
-
+SECRET_KEY = env('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Use variáveis de ambiente para DEBUG
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true' # Garante que 'true' ou 'False' funciona
+DEBUG = env('DJANGO_DEBUG')
 
 # ALLOWED_HOSTS para produção
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'jecy.onrender.com'] # Corrigido: Removido aspas ausentes
-if not DEBUG:
-    # Em produção, adicione os domínios do seu site aqui
-    ALLOWED_HOSTS.append('.seusitedaqui.com') 
+# No Render, o hostname do seu aplicativo é injetado.
+# A lista base inclui localhost para desenvolvimento.
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
+if not DEBUG:
+    # Em produção, adicione os domínios do seu site.
+    # O Render.com injetará o hostname do seu serviço.
+    # 'jecy.onrender.com' já deve ser adicionado aqui.
+    ALLOWED_HOSTS.extend(env.list('DJANGO_ALLOWED_HOSTS'))
+    ALLOWED_HOSTS.append('jecy.onrender.com') # Garante que o domínio do Render está incluído
+    # Se você tiver domínios personalizados, adicione-os via DJANGO_ALLOWED_HOSTS no Render.
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -52,7 +69,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'jecistore_project.urls'
 
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -72,25 +88,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'jecistore_project.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+# django-environ pode configurar o banco de dados diretamente de uma URL de banco de dados
+# que o Render fornece (DATABASE_URL).
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'jecy_dados'), # Nome do banco de dados
-        'USER': os.environ.get('DB_USER', 'jeffmark10'), # Usuário do banco de dados
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'JFmarques500.'), # Senha do banco de dados
-        'HOST': os.environ.get('DB_HOST', 'localhost'),  # Geralmente 'localhost' se o DB estiver no mesmo servidor
-        'PORT': os.environ.get('DB_PORT', '5432'),        # Porta padrão do PostgreSQL é 5432
-    }
+    'default': env.db(), # Isso lerá DATABASE_URL ou as variáveis DB_NAME, DB_USER, etc.
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -106,34 +113,24 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = 'pt-br' # Alterado para Português do Brasil
-
 TIME_ZONE = 'America/Sao_Paulo' # Alterado para o fuso horário de São Paulo
-
 USE_I18N = True
-
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Onde os arquivos estáticos serão coletados em produção
-
 
 # Media files (user-uploaded files, like product images)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Onde as imagens de produtos serão salvas
 
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configurações para autenticação de usuário
@@ -141,6 +138,21 @@ LOGIN_REDIRECT_URL = 'home' # Redireciona para a home após o login
 LOGOUT_REDIRECT_URL = 'home' # Redireciona para a home após o logout
 
 # Manipuladores de erro personalizados para páginas 404 e 500
-# Certifique-se de que essas views existam e estejam configuradas em urls.py
 HANDLER404 = 'store.views.custom_404_view'
 HANDLER500 = 'store.views.custom_500_view'
+
+# Exemplo: Acessando a variável do WhatsApp (se for definida como env)
+STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER')
+
+# Alerta em produção se DEBUG estiver ativado (apenas para depuração no Render)
+if not DEBUG:
+    import sys
+    if 'runserver' not in sys.argv: # Não alerta em runserver local
+        print("AVISO: DEBUG está DESATIVADO em ambiente de produção.", file=sys.stderr)
+        # Tenta imprimir o host do DB para verificar se está correto
+        try:
+            db_host = DATABASES['default'].get('HOST', 'N/A')
+            print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
+        except Exception as e:
+            print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
+
