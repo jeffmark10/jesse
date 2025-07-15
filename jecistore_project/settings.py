@@ -4,47 +4,33 @@ from pathlib import Path
 import environ # Importa django-environ
 
 # Inicializa django-environ
-# Define os tipos e valores padrão para as variáveis de ambiente.
-# Os valores padrão serão usados se as variáveis não forem definidas no ambiente (e.g., localmente sem .env).
-# No Render, as variáveis injetadas pela plataforma SOBRESCREVERÃO esses padrões.
 env = environ.Env(
-    # DEBUG será True por padrão em desenvolvimento local, mas False no Render.
-    DJANGO_DEBUG=(bool, True),
+    DJANGO_DEBUG=(bool, True), # Padrão True para DEV local
     DJANGO_SECRET_KEY=(str, 'django-insecure-_garv=!#u+!ub@t=95wb9yd)*ya+w_8k+54@vndtlx_#h^cd$5'),
-    # Use DATABASE_URL para uma configuração de banco de dados mais simples.
-    # O Render fornece uma DATABASE_URL completa.
-    # O valor padrão é para desenvolvimento local com PostgreSQL.
     DATABASE_URL=(str, 'postgres://jeffmark10:JFmarques500.@localhost:5432/jecy_dados'),
-    STORE_WHATSAPP_NUMBER=(str, '5511999999999'), # Seu número de WhatsApp para DEV
-    # Permite definir ALLOWED_HOSTS via variável de ambiente em produção.
-    DJANGO_ALLOWED_HOSTS=(list, []), 
+    STORE_WHATSAPP_NUMBER=(str, '5511999999999'),
+    DJANGO_ALLOWED_HOSTS=(list, []), # Padrão lista vazia para hosts adicionais
 )
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Lendo o arquivo .env se existir (apenas para desenvolvimento local).
-# No Render, as variáveis de ambiente da plataforma terão precedência.
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('DJANGO_SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DJANGO_DEBUG')
 
-# ALLOWED_HOSTS para produção
-# No Render, o hostname do seu aplicativo é injetado.
-# A lista base inclui localhost para desenvolvimento.
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+# Define ALLOWED_HOSTS
+# Sempre inclua localhost e 127.0.0.1 para desenvolvimento local
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] 
 
-if not DEBUG:
-    # Em produção, adicione os domínios do seu site.
-    # O Render.com injetará o hostname do seu serviço.
-    # 'jecy.onrender.com' já deve ser adicionado aqui.
-    ALLOWED_HOSTS.extend(env.list('DJANGO_ALLOWED_HOSTS'))
-    ALLOWED_HOSTS.append('jecy.onrender.com') # Garante que o domínio do Render está incluído
-    # Se você tiver domínios personalizados, adicione-os via DJANGO_ALLOWED_HOSTS no Render.
+# Adicione o domínio do Render e quaisquer outros hosts de produção.
+# Isso garante que 'jecy.onrender.com' esteja sempre na lista em produção,
+# independentemente do valor de DEBUG (embora DEBUG deva ser False em prod).
+RENDER_HOST = 'jecy.onrender.com'
+if RENDER_HOST not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_HOST)
+
+# Adicione hosts adicionais que podem vir de uma variável de ambiente (para domínios personalizados)
+ALLOWED_HOSTS.extend(env.list('DJANGO_ALLOWED_HOSTS'))
 
 # Application definition
 INSTALLED_APPS = [
@@ -149,7 +135,7 @@ if not DEBUG:
     import sys
     if 'runserver' not in sys.argv: # Não alerta em runserver local
         print("AVISO: DEBUG está DESATIVADO em ambiente de produção.", file=sys.stderr)
-        # Tenta imprimir o host do DB para verificar se está correto
+        print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr) # Log para verificar
         try:
             db_host = DATABASES['default'].get('HOST', 'N/A')
             print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
