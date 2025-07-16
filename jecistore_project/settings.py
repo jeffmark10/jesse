@@ -27,15 +27,17 @@ SECRET_KEY = env('DJANGO_SECRET_KEY') # Removido o fallback padrão no código
 # Força a leitura de DJANGO_DEBUG como booleano. Padrão False para produção.
 DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
-# ALLOWED_HOSTS para produção
-# Sempre inclua localhost e 127.0.0.1 para desenvolvimento local.
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
-
-# Se não estiver em modo de depuração (ou seja, em produção), adicione hosts de produção adicionais.
-if not DEBUG:
-    # Adiciona hosts da variável de ambiente DJANGO_ALLOWED_HOSTS (lista separada por vírgulas)
-    # Certifique-se de que DJANGO_ALLOWED_HOSTS está definido no Render
-    ALLOWED_HOSTS.extend(env.list('DJANGO_ALLOWED_HOSTS', default=[]))
+# ALLOWED_HOSTS para produção e desenvolvimento.
+# Em DEBUG=True, permite qualquer host para facilitar o desenvolvimento.
+# Em DEBUG=False (produção), usa apenas os hosts definidos na variável de ambiente.
+if DEBUG:
+    ALLOWED_HOSTS = ['*'] # Permite qualquer host em desenvolvimento
+else:
+    # Em produção, obtenha hosts da variável de ambiente DJANGO_ALLOWED_HOSTS.
+    # Certifique-se de que DJANGO_ALLOWED_HOSTS está definido no Render (ex: jecy.onrender.com)
+    ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=[])
+    # Se por algum motivo DJANGO_ALLOWED_HOSTS estiver vazio em produção,
+    # isso causará um erro, o que é o comportamento de segurança correto.
 
 # Application definition
 INSTALLED_APPS = [
