@@ -17,7 +17,7 @@ services:
         value: 3.10.14 # <--- ALINHE ESTE VALOR com a versão do Python que você está usando localmente
       - key: DJANGO_SECRET_KEY # Chave secreta do Django
         generateValue: true # O Render pode gerar um valor seguro para você
-      - key: DJANGO_DEBUG # Modo de depuração do Django
+      - key: DJANGO_DEBUG # Modo de depuração do Djangao
         value: "False" # <--- SEMPRE defina como "False" em produção
       - key: WEB_CONCURRENCY # Número de workers Gunicorn (ajuste com base nos núcleos da CPU do seu servidor)
         value: 4 # Um bom ponto de partida, ajuste conforme necessário
@@ -52,8 +52,8 @@ services:
       - key: STORE_WHATSAPP_NUMBER # Número do WhatsApp da loja
         value: "5561998504516" # Seu número de WhatsApp (com código do país e DDD)
       - key: DJANGO_ALLOWED_HOSTS # <--- NOVO: Para ALLOWED_HOSTS em produção
-        value: jecy.onrender.com # Adicione outros domínios separados por vírgula (ex: seusitedaqui.com,www.seusitedaqui.com)
-
+        value: jecy.onrender.com,127.0.0.1,localhost # Adicione outros domínios separados por vírgula (ex: seusitedaqui.com,www.seusitedaqui.com)
+                                                  # ADICIONADO: 127.0.0.1 e localhost
 databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
     type: postgres # Tipo de banco de dados: PostgreSQL
