@@ -3,11 +3,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, Http404 # Importa Http404 para erros
 from django.contrib.auth.forms import UserCreationForm # Para registro de usuário
-from django.contrib.auth.decorators import login_required # Para proteger views
+from django.contrib.auth.decorators import login_required, user_passes_test # Importa user_passes_test
 from django.contrib import messages # Para mensagens de feedback
 from django.db.models import Q # Para funcionalidade de busca
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger # Para paginação
 from urllib.parse import quote # Importa quote para codificar URLs
+from django.conf import settings # Importa settings para acessar variáveis de configuração
 
 from .models import Product, Category, Cart, CartItem, Profile # Importa os novos modelos de carrinho e Profile
 from .forms import ContactForm, ProductForm # Importa o formulário de contato e ProductForm
@@ -67,15 +68,23 @@ def get_or_create_cart(request):
                     defaults={'quantity': item.quantity}
                 )
                 if not item_created:
-                    # Se o item já existe no carrinho do usuário, atualiza a quantidade
-                    # Verifica se a nova quantidade excede o estoque
-                    new_quantity = user_cart_item.quantity + item.quantity
-                    if new_quantity <= item.product.stock:
-                        user_cart_item.quantity = new_quantity
+                    # Se o item já existe no carrinho do usuário, tenta atualizar a quantidade
+                    # Calcula a quantidade que realmente pode ser adicionada/mantida
+                    quantity_to_add = item.quantity
+                    available_stock_for_addition = item.product.stock - user_cart_item.quantity
+                    
+                    if available_stock_for_addition > 0:
+                        # Adiciona apenas o que é possível até o limite de estoque
+                        actual_added_quantity = min(quantity_to_add, available_stock_for_addition)
+                        user_cart_item.quantity += actual_added_quantity
                         user_cart_item.save()
+                        if actual_added_quantity < quantity_to_add:
+                            messages.warning(request, f"Adicionado {actual_added_quantity} unidades de '{item.product.name}'. O restante ({quantity_to_add - actual_added_quantity}) não pôde ser migrado por limite de estoque.")
                     else:
-                        messages.warning(request, f"Não foi possível migrar todas as unidades de '{item.product.name}' devido a limite de estoque.")
-                item.delete() # Remove o item do carrinho da sessão após a migração
+                        messages.warning(request, f"Não foi possível migrar '{item.product.name}' para o seu carrinho devido ao limite de estoque.")
+                
+                # Remove o item do carrinho da sessão após a tentativa de migração
+                item.delete() 
             
             # Após migrar todos os itens, remove o carrinho de sessão (se estiver vazio)
             if session_cart.items.count() == 0:
@@ -104,23 +113,13 @@ def get_or_create_cart(request):
         return cart
 
 # NOVO DECORADOR: Garante que apenas vendedores possam acessar a view
-def seller_required(function):
-    def wrap(request, *args, **kwargs):
-        # Primeiro, verifica se o usuário está logado
-        if not request.user.is_authenticated:
-            messages.error(request, "Você precisa estar logado para acessar esta área.")
-            return redirect('login') # Redireciona para a página de login
+# Usa user_passes_test para melhor integração com o sistema de autenticação do Django
+def is_seller_check(user):
+    # Garante que o usuário está autenticado e tem um perfil de vendedor
+    return user.is_authenticated and hasattr(user, 'profile') and user.profile.is_seller
 
-        # O Profile é garantido de existir pelo sinal post_save no models.py
-        profile = request.user.profile 
-
-        # Verifica se o usuário é um vendedor
-        if not profile.is_seller:
-            messages.warning(request, "Você não tem permissão para acessar esta área. Contate a administração se deseja se tornar um vendedor.")
-            return redirect('store:user_profile') # Redireciona para o perfil se não for vendedor
-
-        return function(request, *args, **kwargs)
-    return wrap
+# O decorador seller_required agora usa user_passes_test
+seller_required = user_passes_test(is_seller_check, login_url='login')
 
 
 # --- Views Principais ---
@@ -352,8 +351,8 @@ def checkout_whatsapp_view(request):
         messages.warning(request, "Seu carrinho está vazio. Adicione produtos antes de finalizar a compra.")
         return redirect('store:view_cart')
 
-    # Número de WhatsApp da loja (substituído pelo seu novo número)
-    whatsapp_number = "5561998504516" 
+    # Número de WhatsApp da loja, agora vindo das configurações
+    whatsapp_number = settings.STORE_WHATSAPP_NUMBER 
 
     message_parts = [
         "Olá, gostaria de finalizar meu pedido na Jeci Store!",

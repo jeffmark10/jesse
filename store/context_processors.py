@@ -1,5 +1,6 @@
 # store/context_processors.py
 from .models import Cart
+from django.conf import settings # Importa settings
 
 # Este context processor torna a contagem de itens do carrinho disponível
 # em todos os templates.
@@ -21,4 +22,11 @@ def cart_items_count(request):
             # remove a ID do carrinho da sessão para evitar futuras tentativas.
             del request.session['cart_id']
             pass # Não faz nada, a contagem permanece 0
-    return {'cart_items_count': cart_count}
+    
+    # Adiciona o número do WhatsApp do settings ao contexto
+    whatsapp_number = getattr(settings, 'STORE_WHATSAPP_NUMBER', '5511999999999') # Fallback seguro
+
+    return {
+        'cart_items_count': cart_count,
+        'STORE_WHATSAPP_NUMBER': whatsapp_number, # NOVO: Disponibiliza o número do WhatsApp
+    }

@@ -3,7 +3,7 @@
 from django import forms
 # Importa o modelo Product para ser usado no ModelForm.
 # Certifique-se de que Product esteja disponível no seu models.py.
-from .models import Product 
+from .models import Product, Category # Adicionado Category para o ProductForm, se necessário para o campo category
 
 # Formulário de Contato
 # Este formulário é para que os usuários possam enviar mensagens.

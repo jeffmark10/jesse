@@ -2,6 +2,8 @@
 import os
 from pathlib import Path
 import environ # Importa django-environ
+from django.core.exceptions import ImproperlyConfigured # Importa para lidar com chaves secretas ausentes
+import sys # Importa o módulo sys para acessar sys.stderr
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,8 +18,10 @@ env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Se DJANGO_SECRET_KEY não for encontrada no ambiente, use o valor padrão.
-SECRET_KEY = env('DJANGO_SECRET_KEY', default='django-insecure-_garv=!#u+!ub@t=95wb9yd)*ya+w_8k+54@vndtlx_#h^cd$5')
+# A SECRET_KEY deve ser definida como uma variável de ambiente (DJANGO_SECRET_KEY).
+# Em produção, a ausência desta variável irá levantar um erro, o que é o comportamento desejado.
+# Para desenvolvimento local, defina-a no seu ficheiro .env.
+SECRET_KEY = env('DJANGO_SECRET_KEY') # Removido o fallback padrão no código
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Força a leitura de DJANGO_DEBUG como booleano. Padrão False para produção.
@@ -25,19 +29,13 @@ DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
 # ALLOWED_HOSTS para produção
 # Sempre inclua localhost e 127.0.0.1 para desenvolvimento local.
-# Adicione o domínio do Render diretamente aqui, pois ele é fixo e obrigatório.
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'jecy.onrender.com']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 # Se não estiver em modo de depuração (ou seja, em produção), adicione hosts de produção adicionais.
 if not DEBUG:
     # Adiciona hosts da variável de ambiente DJANGO_ALLOWED_HOSTS (lista separada por vírgulas)
     # Certifique-se de que DJANGO_ALLOWED_HOSTS está definido no Render
     ALLOWED_HOSTS.extend(env.list('DJANGO_ALLOWED_HOSTS', default=[]))
-    # A linha abaixo era redundante, já que 'jecy.onrender.com' já foi adicionado acima.
-    # Pode ser removida para clareza.
-    # RENDER_HOST = 'jecy.onrender.com'
-    # if RENDER_HOST not in ALLOWED_HOSTS:
-    #     ALLOWED_HOSTS.append(RENDER_HOST)
 
 # Application definition
 INSTALLED_APPS = [
@@ -83,11 +81,17 @@ WSGI_APPLICATION = 'jecistore_project.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# django-environ pode configurar o banco de dados diretamente de uma URL de banco de dados
-# que o Render fornece (DATABASE_URL).
-# O valor padrão é para desenvolvimento local com PostgreSQL.
+# Configuração do banco de dados para usar DATABASE_URL.
+# Em desenvolvimento (DEBUG=True), DATABASE_URL deve ser definida no .env.
+# Em produção (DEBUG=False), DATABASE_URL é fornecida pelo ambiente (ex: Render).
 DATABASES = {
-    'default': env.db(),
+    'default': env.db_url(
+        'DATABASE_URL',
+        # Não há fallback para SQLite aqui. DATABASE_URL deve ser fornecida.
+        # Se DATABASE_URL não estiver definida em DEBUG=True, isso causará um erro.
+        # Para usar SQLite em DEBUG=True, você pode adicionar um fallback aqui,
+        # mas para migrar para PostgreSQL, precisamos que ele tente conectar.
+    )
 }
 
 # Password validation
@@ -136,11 +140,11 @@ HANDLER404 = 'store.views.custom_404_view'
 HANDLER500 = 'store.views.custom_500_view'
 
 # Exemplo: Acessando a variável do WhatsApp (se for definida como env)
+# Este valor será usado nas views e templates para o número de contato do WhatsApp
 STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER', default='5511999999999')
 
 # Alerta em produção se DEBUG estiver ativado (apenas para depuração no Render)
 if not DEBUG:
-    import sys
     if 'runserver' not in sys.argv: # Não alerta em runserver local
         print("AVISO: DEBUG está DESATIVADO em ambiente de produção.", file=sys.stderr)
         print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr) # Log para verificar
