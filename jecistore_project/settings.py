@@ -82,15 +82,12 @@ WSGI_APPLICATION = 'jecistore_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 # Configuração do banco de dados para usar DATABASE_URL.
-# Em desenvolvimento (DEBUG=True), DATABASE_URL deve ser definida no .env.
-# Em produção (DEBUG=False), DATABASE_URL é fornecida pelo ambiente (ex: Render).
+# Adicionado 'options={'client_encoding': 'UTF8'}' diretamente aqui.
 DATABASES = {
     'default': env.db_url(
         'DATABASE_URL',
-        # Não há fallback para SQLite aqui. DATABASE_URL deve ser fornecida.
-        # Se DATABASE_URL não estiver definida em DEBUG=True, isso causará um erro.
-        # Para usar SQLite em DEBUG=True, você pode adicionar um fallback aqui,
-        # mas para migrar para PostgreSQL, precisamos que ele tente conectar.
+        conn_max_age=600, # Opcional: tempo de vida máximo para conexões persistentes
+        options={'client_encoding': 'UTF8'} # Garante que a conexão use codificação UTF-8
     )
 }
 
