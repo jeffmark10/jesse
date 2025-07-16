@@ -34,10 +34,13 @@ if DEBUG:
     ALLOWED_HOSTS = ['*'] # Permite qualquer host em desenvolvimento
 else:
     # Em produção, obtenha hosts da variável de ambiente DJANGO_ALLOWED_HOSTS.
-    # Certifique-se de que DJANGO_ALLOWED_HOSTS está definido no Render (ex: jecy.onrender.com)
-    ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=[])
-    # Se por algum motivo DJANGO_ALLOWED_HOSTS estiver vazio em produção,
-    # isso causará um erro, o que é o comportamento de segurança correto.
+    # Adicionamos um fallback mais robusto para incluir 127.0.0.1 e localhost
+    # caso a variável de ambiente não seja lida corretamente.
+    allowed_hosts_from_env = env.list('DJANGO_ALLOWED_HOSTS', default=[])
+    default_production_hosts = ['jecy.onrender.com', '127.0.0.1', 'localhost']
+    
+    # Combina os hosts do ambiente com os hosts padrão de produção, removendo duplicatas
+    ALLOWED_HOSTS = list(set(allowed_hosts_from_env + default_production_hosts))
 
 # Application definition
 INSTALLED_APPS = [
@@ -156,3 +159,4 @@ if not DEBUG:
             print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
+
