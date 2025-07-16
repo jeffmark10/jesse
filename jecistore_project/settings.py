@@ -84,14 +84,18 @@ WSGI_APPLICATION = 'jecistore_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 # Configuração do banco de dados para usar DATABASE_URL.
-# Adicionado 'options={'client_encoding': 'UTF8'}' diretamente aqui.
+# Removido 'conn_max_age' e 'options' da chamada env.db_url()
 DATABASES = {
-    'default': env.db_url(
-        'DATABASE_URL',
-        conn_max_age=600, # Opcional: tempo de vida máximo para conexões persistentes
-        options={'client_encoding': 'UTF8'} # Garante que a conexão use codificação UTF-8
-    )
+    'default': env.db_url('DATABASE_URL')
 }
+
+# Adiciona conn_max_age e OPTIONS (para client_encoding) após a inicialização
+# do banco de dados pelo django-environ.
+# Isso é necessário porque a versão 0.12.0 do django-environ não aceita esses argumentos
+# diretamente no env.db_url().
+DATABASES['default']['CONN_MAX_AGE'] = 600
+DATABASES['default']['OPTIONS'] = {'client_encoding': 'UTF8'}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
