@@ -6,7 +6,6 @@ services:
     name: jecistore # Nome do seu serviço web no Render
     env: python # O ambiente de tempo de execução é Python
     # NOVO: Informa ao Render onde encontrar os arquivos estáticos coletados
-    static_files_path: staticfiles 
     # Comando de construção: instala dependências, coleta arquivos estáticos e executa migrações
     buildCommand: |
       set -e # Sai imediatamente se um comando falhar
@@ -77,5 +76,5 @@ services:
         generateValue: true # O Render pode gerar um valor seguro para você, ou defina um valor fixo
 databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
-    type: postgres # Tipo de banco de dados: PostgreSQL
+    type: PostgreSQL
     plan: free # Plano do banco de dados (pode ser 'standard' para mais recursos em produção)
