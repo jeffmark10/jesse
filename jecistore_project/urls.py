@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from store.views import home_view
-from django.conf import settings # Importe settings
+from django.conf import settings
 from django.conf.urls.static import static # Importe static
 
 # Importa os manipuladores de erro personalizados
@@ -13,15 +13,17 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home_view, name='home'), 
     path('store/', include('store.urls')), 
-    path('accounts/', include('django.contrib.auth.urls')), # URLs de autenticação do Django (login, logout, etc.)
+    path('accounts/', include('django.contrib.auth.urls')),
 ]
 
 # Apenas para servir arquivos de mídia e estáticos durante o desenvolvimento
-# Em produção, um servidor web como Nginx ou Apache deve ser configurado para servir esses arquivos.
+# Em produção, o Cloudinary (para mídia) e o Render (para estáticos) servirão esses arquivos.
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) # Adicionado para estáticos
+    # Remova ou comente a linha abaixo para MEDIA_URL
+    # urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) 
+    # Mantenha esta linha para STATIC_URL se você ainda quiser servir estáticos localmente
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) 
 
-# Manipuladores de erro personalizados (não precisam de if settings.DEBUG)
+# Manipuladores de erro personalizados
 handler404 = custom_404_view
 handler500 = custom_500_view
