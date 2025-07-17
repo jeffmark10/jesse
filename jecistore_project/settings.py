@@ -35,12 +35,14 @@ else:
     # Em produção, obtenha hosts da variável de ambiente DJANGO_ALLOWED_HOSTS.
     # Adicionamos um fallback mais robusto para incluir 127.0.0.1 e localhost
     # caso a variável de ambiente não seja lida corretamente.
+    # CORREÇÃO: Garante que 'jecistore.onrender.com' esteja sempre incluído.
     allowed_hosts_from_env = env.list('DJANGO_ALLOWED_HOSTS', default=[])
-    # CORREÇÃO: Certifique-se de que 'jecistore.onrender.com' está aqui
-    default_production_hosts = ['jecistore.onrender.com', '127.0.0.1', 'localhost']
     
-    # Combina os hosts do ambiente com os hosts padrão de produção, removendo duplicatas
-    ALLOWED_HOSTS = list(set(allowed_hosts_from_env + default_production_hosts))
+    # Lista de hosts essenciais para produção e desenvolvimento local
+    essential_hosts = ['jecistore.onrender.com', '127.0.0.1', 'localhost']
+    
+    # Combina os hosts do ambiente com os hosts essenciais, removendo duplicatas
+    ALLOWED_HOSTS = list(set(allowed_hosts_from_env + essential_hosts))
 
 # Application definition
 INSTALLED_APPS = [
@@ -155,6 +157,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Configurações para autenticação de usuário
 LOGIN_REDIRECT_URL = 'home' # Redireciona para a home após o login
 LOGOUT_REDIRECT_URL = 'home' # Redireciona para a home após o logout
+LOGIN_URL = 'login' # Define a URL de login explicitamente
 
 # Manipuladores de erro personalizados para páginas 404 e 500
 HANDLER404 = 'store.views.custom_404_view'
@@ -174,3 +177,4 @@ if not DEBUG:
             print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
+
