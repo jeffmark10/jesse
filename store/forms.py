@@ -1,9 +1,8 @@
 # store/forms.py
 
 from django import forms
-# Importa o modelo Product para ser usado no ModelForm.
-# Certifique-se de que Product esteja disponível no seu models.py.
-from .models import Product, Category # Adicionado Category para o ProductForm, se necessário para o campo category
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm # Importa AuthenticationForm
+from .models import Product, Category 
 
 # Formulário de Contato
 # Este formulário é para que os usuários possam enviar mensagens.
@@ -93,3 +92,59 @@ class ProductForm(forms.ModelForm):
             'is_featured': "Destacar na Página Inicial?",
             'tracking_code': "Código de Rastreamento (Opcional)" # NOVO: Rótulo
         }
+
+# NOVO FORMULÁRIO: UserRegistrationForm
+# Personaliza o UserCreationForm do Django para aplicar estilos Tailwind CSS.
+class UserRegistrationForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        # Usa o modelo de usuário padrão do Django.
+        model = forms.CharField
+        # Define os campos a serem exibidos no formulário de registro.
+        fields = UserCreationForm.Meta.fields + ('email',) # Adiciona o campo de email
+
+        # Personaliza os widgets para aplicar classes Tailwind CSS.
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+                'placeholder': 'Seu nome de usuário'
+            }),
+            'password': forms.PasswordInput(attrs={
+                'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+                'placeholder': 'Sua senha'
+            }),
+            'password2': forms.PasswordInput(attrs={ # Campo de confirmação de senha
+                'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+                'placeholder': 'Confirme sua senha'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+                'placeholder': 'seu.email@exemplo.com'
+            }),
+        }
+        # Rótulos amigáveis para os campos.
+        labels = {
+            'username': "Nome de Usuário",
+            'password': "Senha",
+            'password2': "Confirme a Senha",
+            'email': "E-mail",
+        }
+
+# NOVO FORMULÁRIO: UserLoginForm
+# Personaliza o AuthenticationForm do Django para aplicar estilos Tailwind CSS.
+class UserLoginForm(AuthenticationForm):
+    # Personaliza os widgets para aplicar classes Tailwind CSS.
+    username = forms.CharField(
+        label="Nome de Usuário",
+        widget=forms.TextInput(attrs={
+            'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+            'placeholder': 'Seu nome de usuário'
+        })
+    )
+    password = forms.CharField(
+        label="Senha",
+        widget=forms.PasswordInput(attrs={
+            'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+            'placeholder': 'Sua senha'
+        })
+    )
+
