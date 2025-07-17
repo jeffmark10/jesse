@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'store', # Seu aplicativo de loja
+    'cloudinary', # NOVO: Adiciona o aplicativo Cloudinary
+    'cloudinary_storage', # NOVO: Adiciona o aplicativo de armazenamento Cloudinary
 ]
 
 MIDDLEWARE = [
