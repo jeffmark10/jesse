@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 from django.urls import path, include
-from store.views import home_view
+from store.views import home_view, login_view # Importa a nova view de login
 from django.conf import settings
 from django.conf.urls.static import static # Importe static
 
@@ -13,6 +13,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home_view, name='home'), 
     path('store/', include('store.urls')), 
+    # Usa a view de login personalizada
+    path('accounts/login/', login_view, name='login'), 
     path('accounts/', include('django.contrib.auth.urls')),
 ]
 
@@ -27,3 +29,4 @@ if settings.DEBUG:
 # Manipuladores de erro personalizados
 handler404 = custom_404_view
 handler500 = custom_500_view
+
