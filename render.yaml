@@ -10,6 +10,7 @@ services:
       pip install -r requirements.txt # Instala as dependências listadas em requirements.txt
       python manage.py collectstatic --noinput # Coleta todos os arquivos estáticos
       python manage.py migrate # Aplica as migrações do banco de dados
+      python manage.py createsuperuser_if_not_exists # NOVO: Cria o superusuário se não existir
     # Comando de inicialização: usa Gunicorn para servir a aplicação Django
     startCommand: gunicorn jecistore_project.wsgi:application --bind 0.0.0.0:$PORT
     envVars: # Variáveis de ambiente para o seu aplicativo Django
@@ -54,8 +55,14 @@ services:
       - key: DJANGO_ALLOWED_HOSTS # <--- NOVO: Para ALLOWED_HOSTS em produção
         value: jecy.onrender.com,127.0.0.1,localhost # Adicione outros domínios separados por vírgula (ex: seusitedaqui.com,www.seusitedaqui.com)
                                                   # ADICIONADO: 127.0.0.1 e localhost
+      # NOVAS VARIÁVEIS PARA O SUPERUSUÁRIO
+      - key: DJANGO_SUPERUSER_USERNAME
+        value: admin # Altere para o nome de usuário desejado
+      - key: DJANGO_SUPERUSER_EMAIL
+        value: admin@example.com # Altere para o e-mail desejado
+      - key: DJANGO_SUPERUSER_PASSWORD
+        generateValue: true # O Render pode gerar um valor seguro para você, ou defina um valor fixo
 databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
     type: postgres # Tipo de banco de dados: PostgreSQL
     plan: free # Plano do banco de dados (pode ser 'standard' para mais recursos em produção)
-
