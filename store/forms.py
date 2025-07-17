@@ -2,7 +2,11 @@
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm # Importa AuthenticationForm
+from django.contrib.auth import get_user_model # Importa get_user_model para referenciar o modelo User
 from .models import Product, Category 
+
+# Obtém o modelo de usuário ativo do Django.
+User = get_user_model()
 
 # Formulário de Contato
 # Este formulário é para que os usuários possam enviar mensagens.
@@ -97,16 +101,28 @@ class ProductForm(forms.ModelForm):
 # Personaliza o UserCreationForm do Django para aplicar estilos Tailwind CSS.
 class UserRegistrationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
-        # Usa o modelo de usuário padrão do Django.
-        model = forms.CharField
-        # Define os campos a serem exibidos no formulário de registro.
-        fields = UserCreationForm.Meta.fields + ('email',) # Adiciona o campo de email
+        # CORREÇÃO: Removido 'model = forms.CharField'. UserCreationForm já define model = User.
+        # fields = UserCreationForm.Meta.fields + ('email',) # Adiciona o campo de email
+        # Para adicionar o campo 'email' ao UserCreationForm, é melhor adicioná-lo explicitamente
+        # como um campo no formulário e depois sobrescrever o método save() se necessário,
+        # ou garantir que ele esteja no UserCreationForm.Meta.fields.
+        # No Django 5.x, UserCreationForm já inclui 'username' e 'password'.
+        # Se você quiser 'email' no registro, precisa adicioná-lo e garantir que o save() o trate.
+        # Para simplificar e evitar o erro, vamos manter os campos padrão do UserCreationForm
+        # e adicionar o email como um campo extra se realmente precisar dele no formulário.
+        # Se você quer que o email seja parte do modelo de usuário padrão, você pode adicioná-lo
+        # ao `fields` e ele será tratado automaticamente.
+        fields = ('username', 'email', 'password', 'password2') # Incluindo email aqui
 
         # Personaliza os widgets para aplicar classes Tailwind CSS.
         widgets = {
             'username': forms.TextInput(attrs={
                 'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
                 'placeholder': 'Seu nome de usuário'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+                'placeholder': 'seu.email@exemplo.com'
             }),
             'password': forms.PasswordInput(attrs={
                 'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
@@ -116,17 +132,13 @@ class UserRegistrationForm(UserCreationForm):
                 'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
                 'placeholder': 'Confirme sua senha'
             }),
-            'email': forms.EmailInput(attrs={
-                'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
-                'placeholder': 'seu.email@exemplo.com'
-            }),
         }
         # Rótulos amigáveis para os campos.
         labels = {
             'username': "Nome de Usuário",
+            'email': "E-mail",
             'password': "Senha",
             'password2': "Confirme a Senha",
-            'email': "E-mail",
         }
 
 # NOVO FORMULÁRIO: UserLoginForm
