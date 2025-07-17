@@ -76,5 +76,4 @@ services:
         generateValue: true # O Render pode gerar um valor seguro para você, ou defina um valor fixo
 databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
-    type: PostgreSQL
     plan: free # Plano do banco de dados (pode ser 'standard' para mais recursos em produção)
