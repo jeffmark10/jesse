@@ -1,17 +1,18 @@
 # store/views.py
 
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse, Http404 # Importa Http404 para erros
-from django.contrib.auth.forms import UserCreationForm # Para registro de usuário
+from django.http import HttpResponse # Http404 removido, pois get_object_or_404 já o trata
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm # Importa AuthenticationForm
 from django.contrib.auth.decorators import login_required, user_passes_test # Importa user_passes_test
 from django.contrib import messages # Para mensagens de feedback
 from django.db.models import Q # Para funcionalidade de busca
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger # Para paginação
 from urllib.parse import quote # Importa quote para codificar URLs
 from django.conf import settings # Importa settings para acessar variáveis de configuração
+from django.contrib.auth import login # Importa a função login
 
 from .models import Product, Category, Cart, CartItem, Profile # Importa os novos modelos de carrinho e Profile
-from .forms import ContactForm, ProductForm # Importa o formulário de contato e ProductForm
+from .forms import ContactForm, ProductForm, UserRegistrationForm, UserLoginForm # Importa os novos formulários
 
 # --- Funções Auxiliares ---
 
@@ -30,6 +31,7 @@ def get_categories_tree():
     Busca todas as categorias de nível superior e pré-carrega seus filhos
     para construir a árvore de categorias no menu.
     """
+    # Usa prefetch_related para otimizar a busca por subcategorias
     root_categories = Category.objects.filter(parent__isnull=True).prefetch_related('children')
     return root_categories
 
@@ -60,7 +62,7 @@ def get_or_create_cart(request):
                 session_cart = None
 
         if session_cart and session_cart != user_cart: # Garante que não é o mesmo carrinho
-            for item in session_cart.items.all():
+            for item in session_cart.items.select_related('product').all(): # Otimiza a busca do produto
                 # Tenta adicionar o item ao carrinho do usuário
                 user_cart_item, item_created = CartItem.objects.get_or_create(
                     cart=user_cart,
@@ -125,7 +127,8 @@ seller_required = user_passes_test(is_seller_check, login_url='login')
 # --- Views Principais ---
 
 def home_view(request):
-    featured_products = Product.objects.filter(is_featured=True, stock__gt=0)[:4] # Apenas produtos em estoque
+    # Otimiza a busca de produtos, pré-carregando a categoria e o vendedor
+    featured_products = Product.objects.filter(is_featured=True, stock__gt=0).select_related('category', 'seller')[:4] 
     categories = get_categories_tree() # Obtém a árvore de categorias
     context = {
         'featured_products': featured_products,
@@ -135,7 +138,8 @@ def home_view(request):
     return render(request, 'home.html', context)
 
 def product_list_view(request, category_slug=None):
-    products = Product.objects.filter(stock__gt=0) # Começa filtrando apenas produtos em estoque
+    # Otimiza a busca de produtos, pré-carregando a categoria e o vendedor
+    products = Product.objects.filter(stock__gt=0).select_related('category', 'seller') # Começa filtrando apenas produtos em estoque
     current_category = None
     search_query = request.GET.get('q') # Obtém o parâmetro de busca 'q'
     min_price = request.GET.get('min_price') # Novo: filtro de preço mínimo
@@ -291,17 +295,21 @@ def add_to_cart(request, product_id):
     return redirect('store:product_detail', pk=product_id) # Redireciona para a página do produto
 
 def view_cart(request):
+    # Otimiza a busca dos itens do carrinho, pré-carregando os produtos relacionados
     cart = get_or_create_cart(request)
+    # Garante que os itens do carrinho sejam buscados com os produtos relacionados
+    cart_items = cart.items.select_related('product').all() 
     categories = get_categories_tree()
     context = {
         'cart': cart,
+        'cart_items': cart_items, # Passa os itens otimizados para o template
         'page_title': 'Seu Carrinho',
         'categories': categories,
     }
     return render(request, 'cart.html', context)
 
 def update_cart_item(request, item_id):
-    cart_item = get_object_or_404(CartItem, id=item_id)
+    cart_item = get_object_or_404(CartItem.objects.select_related('product'), id=item_id) # Otimiza a busca do produto
     cart = get_or_create_cart(request)
 
     # Garante que o item pertence ao carrinho correto (segurança)
@@ -330,7 +338,7 @@ def update_cart_item(request, item_id):
     return redirect('store:view_cart')
 
 def remove_from_cart(request, item_id):
-    cart_item = get_object_or_404(CartItem, id=item_id)
+    cart_item = get_object_or_404(CartItem.objects.select_related('product'), id=item_id) # Otimiza a busca do produto
     cart = get_or_create_cart(request)
 
     # Garante que o item pertence ao carrinho correto (segurança)
@@ -360,7 +368,8 @@ def checkout_whatsapp_view(request):
     ]
     tracking_codes = []
 
-    for item in cart.items.all():
+    # Otimiza a busca dos itens do carrinho, pré-carregando os produtos relacionados
+    for item in cart.items.select_related('product').all():
         message_parts.append(f"- {item.quantity}x {item.product.name} (R${item.product.price:.2f})")
         if item.product.tracking_code:
             tracking_codes.append(f"    Código de Rastreamento: {item.product.tracking_code}")
@@ -391,23 +400,45 @@ def checkout_whatsapp_view(request):
 def signup_view(request):
     categories = get_categories_tree()
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = UserRegistrationForm(request.POST) # Usa o novo formulário personalizado
         if form.is_valid():
             user = form.save()
             # O sinal post_save em store.signals.py garantirá que um Profile seja criado para este usuário.
-            # login(request, user) # Opcional: logar o usuário automaticamente após o registro
-            messages.success(request, 'Sua conta foi criada com sucesso! Faça login para continuar.')
-            return redirect('login') # Redireciona para a página de login
+            login(request, user) # Opcional: logar o usuário automaticamente após o registro
+            messages.success(request, 'Sua conta foi criada com sucesso! Você está logado(a).')
+            return redirect('home') # Redireciona para a página inicial após o registro e login
         else:
             messages.error(request, 'Por favor, corrija os erros no formulário de registro.')
     else:
-        form = UserCreationForm()
+        form = UserRegistrationForm() # Usa o novo formulário personalizado
     context = {
         'page_title': 'Registrar-se',
         'form': form,
         'categories': categories,
     }
     return render(request, 'registration/signup.html', context)
+
+# Adiciona a view de login personalizada para usar o UserLoginForm
+def login_view(request):
+    categories = get_categories_tree()
+    if request.method == 'POST':
+        form = UserLoginForm(request, data=request.POST) # Usa o novo formulário personalizado
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            messages.success(request, f"Bem-vindo(a) de volta, {user.username}!")
+            return redirect('home') # Redireciona para a home após o login
+        else:
+            messages.error(request, "Nome de usuário ou senha inválidos.")
+    else:
+        form = UserLoginForm() # Usa o novo formulário personalizado
+    context = {
+        'page_title': 'Entrar',
+        'form': form,
+        'categories': categories,
+    }
+    return render(request, 'registration/login.html', context)
+
 
 @login_required # Garante que apenas usuários logados podem acessar esta view
 def user_profile_view(request):
@@ -469,7 +500,8 @@ def add_product_view(request):
 @seller_required # Protege a view
 def my_products_view(request):
     categories = get_categories_tree()
-    products = Product.objects.filter(seller=request.user).order_by('-created_at')
+    # Otimiza a busca de produtos, pré-carregando a categoria e o vendedor
+    products = Product.objects.filter(seller=request.user).select_related('category', 'seller').order_by('-created_at')
 
     paginator = Paginator(products, 10)
     page_number = request.GET.get('page')
@@ -491,7 +523,7 @@ def my_products_view(request):
 
 @seller_required # Protege a view
 def edit_product_view(request, pk):
-    product = get_object_or_404(Product, pk=pk, seller=request.user)
+    product = get_object_or_404(Product.objects.select_related('category', 'seller'), pk=pk, seller=request.user) # Otimiza a busca
     categories = get_categories_tree()
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES, instance=product)
@@ -525,3 +557,4 @@ def delete_product_view(request, pk):
     
     messages.error(request, "Método inválido para exclusão. Confirme a exclusão via POST.")
     return redirect('store:my_products')
+
