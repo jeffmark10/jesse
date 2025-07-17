@@ -5,6 +5,8 @@ services:
   - type: web # Define este serviço como um aplicativo web
     name: jecistore # Nome do seu serviço web no Render
     env: python # O ambiente de tempo de execução é Python
+    # NOVO: Informa ao Render onde encontrar os arquivos estáticos coletados
+    static_files_path: staticfiles 
     # Comando de construção: instala dependências, coleta arquivos estáticos e executa migrações
     buildCommand: |
       pip install -r requirements.txt # Instala as dependências listadas em requirements.txt
@@ -51,7 +53,7 @@ services:
       #     name: jecistore-database
       #     property: port
       - key: STORE_WHATSAPP_NUMBER # Número do WhatsApp da loja
-        value: "5561998504516" # Seu número de WhatsApp (com código do país e DDD)
+        value: "5561998504619" # Seu número de WhatsApp (com código do país e DDD)
       - key: DJANGO_ALLOWED_HOSTS # <--- NOVO: Para ALLOWED_HOSTS em produção
         value: jecy.onrender.com,127.0.0.1,localhost # Adicione outros domínios separados por vírgula (ex: seusitedaqui.com,www.seusitedaqui.com)
                                                   # ADICIONADO: 127.0.0.1 e localhost
@@ -66,3 +68,4 @@ databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
     type: postgres # Tipo de banco de dados: PostgreSQL
     plan: free # Plano do banco de dados (pode ser 'standard' para mais recursos em produção)
+s
