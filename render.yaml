@@ -6,6 +6,7 @@ services:
     name: jecistore # Nome do seu serviço web no Render
     env: python # O ambiente de tempo de execução é Python
     # NOVO: Informa ao Render onde encontrar os arquivos estáticos coletados
+    static_files_path: staticfiles 
     # Comando de construção: instala dependências, coleta arquivos estáticos e executa migrações
     buildCommand: |
       set -e # Sai imediatamente se um comando falhar
@@ -38,11 +39,34 @@ services:
       - key: DATABASE_URL # <--- NOVO: Variável de ambiente para a URL completa do banco de dados
         fromDatabase:
           name: jecistore-database # Nome do banco de dados PostgreSQL
-          property: connectionString # Obtém a string de conexão completo
+          property: connectionString # Obtém a string de conexão completa
+      # As variáveis DB_NAME, DB_USER, etc. não são estritamente necessárias se DATABASE_URL for usada,
+      # mas o django-environ pode usá-las como fallback se DATABASE_URL não estiver presente.
+      # Para clareza, você pode removê-las se usar DATABASE_URL.
+      # - key: DB_NAME
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: database
+      # - key: DB_USER
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: user
+      # - key: DB_PASSWORD
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: password
+      # - key: DB_HOST
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: host
+      # - key: DB_PORT
+      #   fromDatabase:
+      #     name: jecistore-database
+      #     property: port
       - key: STORE_WHATSAPP_NUMBER # Número do WhatsApp da loja
         value: "5561998504619" # Seu número de WhatsApp (com código do país e DDD)
       - key: DJANGO_ALLOWED_HOSTS # <--- NOVO: Para ALLOWED_HOSTS em produção
-        value: jecy.onrender.com,127.0.0.1,localhost # Adicione outros domínios separados por vírgula (ex: seusitedaqui.com,www.seusitedaqui.com)
+        value: jecistore.onrender.com,127.0.0.1,localhost # CORRIGIDO: Agora usa o domínio correto do Render
                                                   # ADICIONADO: 127.0.0.1 e localhost
       # NOVAS VARIÁVEIS PARA O SUPERUSUÁRIO
       - key: DJANGO_SUPERUSER_USERNAME
@@ -53,4 +77,5 @@ services:
         generateValue: true # O Render pode gerar um valor seguro para você, ou defina um valor fixo
 databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
+    type: postgres # Tipo de banco de dados: PostgreSQL
     plan: free # Plano do banco de dados (pode ser 'standard' para mais recursos em produção)
