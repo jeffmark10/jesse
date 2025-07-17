@@ -162,7 +162,7 @@ HANDLER500 = 'store.views.custom_500_view'
 
 # Exemplo: Acessando a variável do WhatsApp (se for definida como env)
 # Este valor será usado nas views e templates para o número de contato do WhatsApp
-STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER', default='5511999999999')
+STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER', default='5586981247491') # NOVO NÚMERO AQUI!
 
 # Alerta em produção se DEBUG estiver ativado (apenas para depuração no Render)
 if not DEBUG:
