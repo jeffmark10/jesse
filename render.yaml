@@ -36,7 +36,9 @@ services:
         value: 4 # Um bom ponto de partida, ajuste conforme necessário
       # O Render pode injetar a URL completa do banco de dados, que django-environ usa.
       - key: DATABASE_URL # <--- NOVO: Variável de ambiente para a URL completa do banco de dados
-        
+        fromDatabase:
+          name: jecistore-database # Nome do banco de dados PostgreSQL
+          property: connectionString # Obtém a string de conexão completo
       - key: STORE_WHATSAPP_NUMBER # Número do WhatsApp da loja
         value: "5561998504619" # Seu número de WhatsApp (com código do país e DDD)
       - key: DJANGO_ALLOWED_HOSTS # <--- NOVO: Para ALLOWED_HOSTS em produção
