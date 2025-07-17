@@ -37,7 +37,7 @@ else:
     # Adicionamos um fallback mais robusto para incluir 127.0.0.1 e localhost
     # caso a variável de ambiente não seja lida corretamente.
     allowed_hosts_from_env = env.list('DJANGO_ALLOWED_HOSTS', default=[])
-    default_production_hosts = ['jecy.onrender.com', '127.0.0.1', 'localhost']
+    default_production_hosts = ['jecistore.onrender.com', '127.0.0.1', 'localhost']
     
     # Combina os hosts do ambiente com os hosts padrão de produção, removendo duplicatas
     ALLOWED_HOSTS = list(set(allowed_hosts_from_env + default_production_hosts))
