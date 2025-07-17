@@ -57,9 +57,9 @@ services:
                                                   # ADICIONADO: 127.0.0.1 e localhost
       # NOVAS VARIÁVEIS PARA O SUPERUSUÁRIO
       - key: DJANGO_SUPERUSER_USERNAME
-        value: admin # Altere para o nome de usuário desejado
+        value: jeffmark # Altere para o nome de usuário desejado
       - key: DJANGO_SUPERUSER_EMAIL
-        value: admin@example.com # Altere para o e-mail desejado
+        value: jeffersongarcia2013@gmail.com # Altere para o e-mail desejado
       - key: DJANGO_SUPERUSER_PASSWORD
         generateValue: true # O Render pode gerar um valor seguro para você, ou defina um valor fixo
 databases: # Configuração do banco de dados
