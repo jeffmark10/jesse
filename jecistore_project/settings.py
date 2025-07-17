@@ -2,7 +2,6 @@
 import os
 from pathlib import Path
 import environ # Importa django-environ
-from django.core.exceptions import ImproperlyConfigured # Importa para lidar com chaves secretas ausentes
 import sys # Importa o módulo sys para acessar sys.stderr
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,6 +36,7 @@ else:
     # Adicionamos um fallback mais robusto para incluir 127.0.0.1 e localhost
     # caso a variável de ambiente não seja lida corretamente.
     allowed_hosts_from_env = env.list('DJANGO_ALLOWED_HOSTS', default=[])
+    # CORREÇÃO: Certifique-se de que 'jecistore.onrender.com' está aqui
     default_production_hosts = ['jecistore.onrender.com', '127.0.0.1', 'localhost']
     
     # Combina os hosts do ambiente com os hosts padrão de produção, removendo duplicatas
@@ -131,9 +131,22 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Onde os arquivos estáticos serão coletados em produção
 
-# Media files (user-uploaded files, like product images)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Onde as imagens de produtos serão salvas
+# Configurações para arquivos de mídia (imagens de produtos)
+# Em produção (DEBUG=False), usaremos Cloudinary
+if not DEBUG:
+    # Use o Cloudinary para armazenamento de arquivos de mídia em produção
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    MEDIA_URL = '/media/' # O Cloudinary gerará URLs completas para suas imagens
+    
+    # Configurações do Cloudinary (obtenha do seu painel do Cloudinary)
+    # É CRUCIAL que estas variáveis sejam definidas no Render.
+    CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
+    CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
+    CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
+else:
+    # Em desenvolvimento (DEBUG=True), use o sistema de arquivos local
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -161,4 +174,3 @@ if not DEBUG:
             print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
-
