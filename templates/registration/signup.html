@@ -7,6 +7,7 @@
         <form method="post" class="space-y-6">
             {% csrf_token %}
             
+            {# Renderiza os campos do formulário com os estilos aplicados pelo UserRegistrationForm #}
             {% for field in form %}
                 <div class="mb-4">
                     <label for="{{ field.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">{{ field.label }}:</label>
@@ -32,3 +33,4 @@
         </p>
     </div>
 {% endblock %}
+
