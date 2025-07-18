@@ -122,33 +122,48 @@
             }
         }
 
-        /* Estilo para mensagens do Django */
-        .messages {
-            list-style: none;
+        /* Estilo para mensagens dinâmicas (NOVO) */
+        .dynamic-messages-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1050; /* Acima de overlays e modals */
+            width: 90%;
+            max-width: 400px;
+        }
+        .dynamic-message {
             padding: 1rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             border-radius: 0.5rem;
             font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: slideInRight 0.5s ease-out forwards, fadeOut 0.5s ease-out forwards 4.5s;
+            opacity: 0; /* Começa oculto para a animação */
         }
-        .messages li {
-            margin-bottom: 0.5rem;
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
-        .messages .success {
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .dynamic-message.success {
             background-color: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        .messages .info {
+        .dynamic-message.info {
             background-color: #d1ecf1;
             color: #0c5460;
             border: 1px solid #bee5eb;
         }
-        .messages .warning {
+        .dynamic-message.warning {
             background-color: #fff3cd;
             color: #856404;
             border: 1px solid #ffeeba;
         }
-        .messages .error {
+        .dynamic-message.error {
             background-color: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
@@ -212,15 +227,13 @@
                     <a href="{% url 'store:about' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Sobre Nós</a>
                     <a href="{% url 'store:contact' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Contato</a>
                     
-                    <!-- Ícone do Carrinho -->
+                    <!-- Ícone do Carrinho (agora com ID para atualização dinâmica) -->
                     <a href="{% url 'store:view_cart' %}" class="relative text-gray-600 hover:text-pink-600 transition duration-200">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5H3m4 8V5m0 8a2 2 0 100 4m0-4a2 2 0 110 4m-8 0a2 2 0 100 4m0-4a2 2 0 110 4" />
                         </svg>
                         {# Usa a variável 'cart_items_count' do context processor #}
-                        {% if cart_items_count > 0 %}
-                            <span class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">{{ cart_items_count }}</span>
-                        {% endif %}
+                        <span class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center cart-items-count {% if cart_items_count == 0 %}hidden{% endif %}">{{ cart_items_count }}</span>
                     </a>
 
                     <!-- Links de Autenticação -->
@@ -250,14 +263,15 @@
             </div>
         </header>
 
-        <!-- Área de Mensagens do Django -->
-        {% if messages %}
-            <ul class="messages container mx-auto mt-4 px-4">
+        <!-- Área de Mensagens Dinâmicas (NOVO) -->
+        <div id="dynamic-messages-container" class="dynamic-messages-container">
+            {# Mensagens Django existentes serão convertidas para dinâmicas via JS #}
+            {% if messages %}
                 {% for message in messages %}
-                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                    <div class="dynamic-message {{ message.tags }}">{{ message }}</div>
                 {% endfor %}
-            </ul>
-        {% endif %}
+            {% endif %}
+        </div>
 
         <!-- Conteúdo principal da página -->
         <main class="flex-grow container mx-auto p-4 md:p-8">
@@ -313,6 +327,38 @@
                 }
             }
         }
+
+        // Função para exibir mensagens dinâmicas (NOVO)
+        function displayMessage(message, type) {
+            const container = document.getElementById('dynamic-messages-container');
+            if (!container) return; // Sai se o container não existir
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `dynamic-message ${type}`;
+            messageDiv.innerText = message;
+            
+            container.appendChild(messageDiv);
+
+            // Remove a mensagem após 5 segundos
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000); // 5000ms = 5 segundos
+        }
+
+        // Converte mensagens do Django para mensagens dinâmicas ao carregar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            const djangoMessages = document.querySelectorAll('.messages li');
+            djangoMessages.forEach(msg => {
+                const type = msg.className.split(' ')[0]; // Pega a primeira classe (success, info, etc.)
+                displayMessage(msg.innerText, type);
+            });
+            // Remove o container de mensagens estáticas do Django após convertê-las
+            const staticMessagesContainer = document.querySelector('.messages');
+            if (staticMessagesContainer) {
+                staticMessagesContainer.remove();
+            }
+        });
     </script>
 </body>
 </html>
+

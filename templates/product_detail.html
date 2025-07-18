@@ -28,8 +28,8 @@
             {% endif %}
 
             <div class="flex flex-col sm:flex-row gap-4">
-                <!-- Formulário "Adicionar ao Carrinho" -->
-                <form action="{% url 'store:add_to_cart' product.pk %}" method="POST" class="flex-1 flex items-center gap-2">
+                <!-- Formulário "Adicionar ao Carrinho" (agora com AJAX) -->
+                <form id="add-to-cart-form" action="{% url 'store:add_to_cart' product.pk %}" method="POST" class="flex-1 flex items-center gap-2">
                     {% csrf_token %}
                     <input type="number" name="quantity" value="1" min="1" max="{{ product.stock }}" class="w-20 p-2 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-pink-500" {% if product.stock == 0 %}disabled{% endif %}>
                     <button type="submit" class="flex-1 bg-pink-600 text-white py-3 px-6 rounded-full text-lg font-semibold hover:bg-pink-700 transition duration-300 shadow-lg transform hover:-translate-y-1 {% if product.stock == 0 %}opacity-50 cursor-not-allowed{% endif %}" {% if product.stock == 0 %}disabled{% endif %}>
@@ -50,4 +50,82 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.getElementById('add-to-cart-form').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Impede o envio padrão do formulário
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const quantityInput = form.querySelector('input[name="quantity"]');
+            const addButton = form.querySelector('button[type="submit"]');
+
+            // Desabilita o botão e mostra um indicador de carregamento
+            addButton.disabled = true;
+            addButton.innerHTML = '<svg class="animate-spin h-5 w-5 text-white inline-block mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Adicionando...';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest', // Indica que é uma requisição AJAX
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken') // Envia o token CSRF
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Atualiza a contagem do carrinho no cabeçalho
+                    const cartCountElement = document.querySelector('.cart-items-count');
+                    if (cartCountElement) {
+                        cartCountElement.innerText = data.cart_count;
+                        // Mostra o span se a contagem for maior que 0
+                        if (data.cart_count > 0) {
+                            cartCountElement.closest('.relative').querySelector('span').classList.remove('hidden');
+                        } else {
+                            cartCountElement.closest('.relative').querySelector('span').classList.add('hidden');
+                        }
+                    }
+                    displayMessage(data.message, 'success');
+                } else {
+                    displayMessage(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao adicionar ao carrinho:', error);
+                displayMessage('Ocorreu um erro ao adicionar o produto ao carrinho.', 'error');
+            } finally {
+                // Reabilita o botão e restaura o texto
+                addButton.disabled = false;
+                addButton.innerHTML = 'Adicionar ao Carrinho';
+                quantityInput.value = 1; // Reseta a quantidade para 1
+            }
+        });
+
+        // Função para exibir mensagens dinâmicas (será definida em base.html)
+        function displayMessage(message, type) {
+            // Esta função será sobrescrita pelo script em base.html
+            console.log(`Mensagem (${type}): ${message}`);
+            // Fallback simples caso a função em base.html não esteja carregada
+            alert(message); 
+        }
+
+        // Garante que o elemento do contador do carrinho exista ou seja criado
+        document.addEventListener('DOMContentLoaded', () => {
+            let cartCountElement = document.querySelector('.cart-items-count');
+            if (!cartCountElement) {
+                const cartIcon = document.querySelector('a[href*="view_cart"]');
+                if (cartIcon) {
+                    const span = document.createElement('span');
+                    span.className = 'absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center cart-items-count';
+                    span.innerText = '0'; // Valor inicial
+                    span.classList.add('hidden'); // Esconde se for 0
+                    cartIcon.appendChild(span);
+                }
+            }
+        });
+
+    </script>
 {% endblock %}
+

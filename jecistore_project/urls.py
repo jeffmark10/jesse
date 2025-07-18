@@ -21,8 +21,8 @@ urlpatterns = [
 # Apenas para servir arquivos de mídia e estáticos durante o desenvolvimento
 # Em produção, o Cloudinary (para mídia) e o Render (para estáticos) servirão esses arquivos.
 if settings.DEBUG:
-    # Remova ou comente a linha abaixo para MEDIA_URL
-    # urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) 
+    # DESCOMENTADO: Esta linha é necessária para servir arquivos de mídia localmente em desenvolvimento.
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) 
     # Mantenha esta linha para STATIC_URL se você ainda quiser servir estáticos localmente
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) 
 

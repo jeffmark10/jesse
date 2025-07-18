@@ -1,50 +1,27 @@
 # jecistore_project/settings.py
 import os
 from pathlib import Path
-import environ # Importa django-environ
-import sys # Importa o módulo sys para acessar sys.stderr
+import environ 
+import sys 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 1. Inicializa django-environ.
-#    Não definimos valores padrão aqui para as variáveis que esperamos do ambiente de produção.
-#    Isso força o django-environ a procurar em os.environ ou no .env.
 env = environ.Env()
 
-# 2. Lendo o arquivo .env se existir (apenas para desenvolvimento local).
-#    No Render, as variáveis de ambiente da plataforma terão precedência sobre este arquivo.
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# A SECRET_KEY deve ser definida como uma variável de ambiente (DJANGO_SECRET_KEY).
-# Em produção, a ausência desta variável irá levantar um erro, o que é o comportamento desejado.
-# Para desenvolvimento local, defina-a no seu ficheiro .env.
-SECRET_KEY = env('DJANGO_SECRET_KEY') # Removido o fallback padrão no código
+SECRET_KEY = env('DJANGO_SECRET_KEY') 
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# Força a leitura de DJANGO_DEBUG como booleano. Padrão False para produção.
 DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
-# ALLOWED_HOSTS para produção e desenvolvimento.
-# Em DEBUG=True, permite qualquer host para facilitar o desenvolvimento.
-# Em DEBUG=False (produção), usa apenas os hosts definidos na variável de ambiente.
 if DEBUG:
-    ALLOWED_HOSTS = ['*'] # Permite qualquer host em desenvolvimento
+    ALLOWED_HOSTS = ['*'] 
 else:
-    # Em produção, obtenha hosts da variável de ambiente DJANGO_ALLOWED_HOSTS.
-    # Adicionamos um fallback mais robusto para incluir 127.0.0.1 e localhost
-    # caso a variável de ambiente não seja lida corretamente.
-    # CORREÇÃO: Garante que 'jecistore.onrender.com' esteja sempre incluído.
     allowed_hosts_from_env = env.list('DJANGO_ALLOWED_HOSTS', default=[])
-    
-    # Lista de hosts essenciais para produção e desenvolvimento local
     essential_hosts = ['jecistore.onrender.com', '127.0.0.1', 'localhost']
-    
-    # Combina os hosts do ambiente com os hosts essenciais, removendo duplicatas
     ALLOWED_HOSTS = list(set(allowed_hosts_from_env + essential_hosts))
 
-# Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -52,9 +29,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'store', # Seu aplicativo de loja
-    'cloudinary', # NOVO: Adiciona o aplicativo Cloudinary
-    'cloudinary_storage', # NOVO: Adiciona o aplicativo de armazenamento Cloudinary
+    'store', 
+    'cloudinary', 
+    'cloudinary_storage', 
 ]
 
 MIDDLEWARE = [
@@ -72,7 +49,7 @@ ROOT_URLCONF = 'jecistore_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')], # Adicione esta linha para templates globais
+        'DIRS': [os.path.join(BASE_DIR, 'templates')], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -80,7 +57,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'store.context_processors.cart_items_count', # NOVO: Context processor para contagem de itens do carrinho
+                'store.context_processors.cart_items_count', 
             ],
         },
     },
@@ -88,24 +65,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'jecistore_project.wsgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# Configuração do banco de dados para usar DATABASE_URL.
-# Removido 'conn_max_age' e 'options' da chamada env.db_url()
 DATABASES = {
     'default': env.db_url('DATABASE_URL')
 }
 
-# Adiciona conn_max_age e OPTIONS (para client_encoding) após a inicialização
-# do banco de dados pelo django-environ.
-# Isso é necessário porque a versão 0.12.0 do django-environ não aceita esses argumentos
-# diretamente no env.db_url().
 DATABASES['default']['CONN_MAX_AGE'] = 600
 DATABASES['default']['OPTIONS'] = {'client_encoding': 'UTF8'}
 
-
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -121,60 +87,108 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-LANGUAGE_CODE = 'pt-br' # Alterado para Português do Brasil
-TIME_ZONE = 'America/Sao_Paulo' # Alterado para o fuso horário de São Paulo
+LANGUAGE_CODE = 'pt-br' 
+TIME_ZONE = 'America/Sao_Paulo' 
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Onde os arquivos estáticos serão coletados em produção
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
 
-# Configurações para arquivos de mídia (imagens de produtos)
-# Em produção (DEBUG=False), usaremos Cloudinary
 if not DEBUG:
-    # Use o Cloudinary para armazenamento de arquivos de mídia em produção
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    MEDIA_URL = '/media/' # O Cloudinary gerará URLs completas para suas imagens
+    MEDIA_URL = '/media/' 
     
-    # Configurações do Cloudinary (obtenha do seu painel do Cloudinary)
-    # É CRUCIAL que estas variáveis sejam definidas no Render.
     CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
     CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
     CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
 else:
-    # Em desenvolvimento (DEBUG=True), use o sistema de arquivos local
     MEDIA_URL = '/media/'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Configurações para autenticação de usuário
-LOGIN_REDIRECT_URL = 'home' # Redireciona para a home após o login
-LOGOUT_REDIRECT_URL = 'home' # Redireciona para a home após o logout
-LOGIN_URL = 'login' # Define a URL de login explicitamente
+LOGIN_REDIRECT_URL = 'home' 
+LOGOUT_REDIRECT_URL = 'home' 
+LOGIN_URL = 'login' 
 
-# Manipuladores de erro personalizados para páginas 404 e 500
 HANDLER404 = 'store.views.custom_404_view'
 HANDLER500 = 'store.views.custom_500_view'
 
-# Exemplo: Acessando a variável do WhatsApp (se for definida como env)
-# Este valor será usado nas views e templates para o número de contato do WhatsApp
-STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER', default='5586981247491') # NOVO NÚMERO AQUI!
+STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER', default='5586981247491') 
+
+# Configuração de Logging (NOVO)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO', # Em desenvolvimento, mostre INFO e acima no console
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple' if DEBUG else 'verbose', # Mais simples em debug
+            'stream': sys.stdout, # Envia para stdout, que o Render captura
+        },
+        'file': {
+            'level': 'DEBUG', # Grave tudo (DEBUG e acima) em um arquivo em produção
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'django_debug.log'),
+            'maxBytes': 1024 * 1024 * 5, # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'store': { # Logger para o seu aplicativo 'store'
+            'handlers': ['console'],
+            'level': 'DEBUG', # Nível mais detalhado para seu app em desenvolvimento
+            'propagate': False,
+        },
+        '': { # Logger raiz, para capturar logs de outras libs ou não especificados
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+# Em produção, adicione o handler de arquivo e aumente o nível de log do Django
+if not DEBUG:
+    LOGGING['loggers']['django']['handlers'].append('file')
+    LOGGING['loggers']['django']['level'] = 'INFO' # Mantenha INFO para Django em produção
+    LOGGING['loggers']['store']['handlers'].append('file')
+    LOGGING['loggers']['store']['level'] = 'INFO' # Mude para INFO ou WARNING em produção para seu app
+    LOGGING['root']['handlers'].append('file')
+    LOGGING['root']['level'] = 'INFO'
 
 # Alerta em produção se DEBUG estiver ativado (apenas para depuração no Render)
 if not DEBUG:
-    if 'runserver' not in sys.argv: # Não alerta em runserver local
-        print("AVISO: DEBUG está DESATIVADO em ambiente de produção.", file=sys.stderr)
-        print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr) # Log para verificar
-        try:
-            db_host = DATABASES['default'].get('HOST', 'N/A')
-            print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
-        except Exception as e:
-            print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
+    if 'runserver' not in sys.argv: 
+        # Estes prints serão substituídos pelos logs configurados acima
+        # print("AVISO: DEBUG está DESATIVADO em ambiente de produção.", file=sys.stderr)
+        # print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr) 
+        # try:
+        #     db_host = DATABASES['default'].get('HOST', 'N/A')
+        #     print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
+        # except Exception as e:
+        #     print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
+        pass # Não é mais necessário, pois o logging faz o trabalho.
 
