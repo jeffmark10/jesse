@@ -6,7 +6,6 @@ services:
     name: jecistore # Nome do seu serviço web no Render
     env: python # O ambiente de tempo de execução é Python
     # NOVO: Informa ao Render onde encontrar os arquivos estáticos coletados
-    static_files_path: staticfiles 
     # Comando de construção: instala dependências, coleta arquivos estáticos e executa migrações
     buildCommand: |
       set -e # Sai imediatamente se um comando falhar
