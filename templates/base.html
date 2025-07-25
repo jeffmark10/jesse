@@ -6,8 +6,11 @@
     <title>{{ page_title|default:"Jeci Store" }}</title>
     <!-- Carrega a fonte Inter do Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <!-- Carrega o Tailwind CSS para estilização -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Carrega o Tailwind CSS compilado localmente -->
+    {% load static %}
+    <link href="{% static 'dist/output.css' %}" rel="stylesheet">
+
     <style>
         /* Estilo para a fonte Inter */
         body {
@@ -285,7 +288,7 @@
             <div class="container mx-auto text-center">
                 <p class="text-sm md:text-base">&copy; 2024 Jeci Store. Todos os direitos reservados.</p>
                 <div class="mt-3 text-xs md:text-sm space-x-4">
-                    <a href="{% url 'store:about' %}" class="hover:text-pink-300 transition duration-200">Sobre Nós</a> 
+                    <a href="{% url 'store:about' %}" class="hover:text-pink-300 transition duration-200">Sobre Nós</a>
                     <span class="text-stone-600">|</span>
                     <a href="{% url 'store:contact' %}" class="hover:text-pink-300 transition duration-200">Contato</a>
                 </div>
@@ -295,12 +298,12 @@
 
     <!-- Botão Flutuante do WhatsApp -->
     {# Usa a variável STORE_WHATSAPP_NUMBER do settings, que deve ser acessível via context #}
-    <a href="https://wa.me/{{ STORE_WHATSAPP_NUMBER }}?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20a%20Jeci%20Store!" 
-       target="_blank" 
+    <a href="https://wa.me/{{ STORE_WHATSAPP_NUMBER }}?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20a%20Jeci%20Store!"
+       target="_blank"
        class="fixed bottom-5 right-5 z-50 bg-green-500 text-white p-3 rounded-full shadow-lg flex items-center justify-center transition duration-300 transform hover:scale-110 hover:bg-green-600">
         <!-- Ícone SVG do WhatsApp para garantir que ele apareça -->
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" class="w-7 h-7">
-            <path d="M380.9 97.1C339.4 55.6 283.9 32 224 32S108.6 55.6 67.1 97.1 32 183.9 32 243.9c0 42.4 13.9 82.1 39.1 113.8L32 480l116.9-31.6c30.7 17.7 65.4 27.9 101.1 27.9 59.9 0 115.4-23.6 156.9-65.1S416 303.9 416 243.9c0-59.9-23.6-115.4-65.1-156.9zM224 416c-35.1 0-69.1-10.2-98.1-29.6l-7.1-4.2L70.5 401l18.4-69.2-4.5-7.2c-20.2-32.3-31.7-69.1-31.7-108.1 0-48.4 19-93.7 53-127.7S175.6 80 224 80s93.7 19 127.7 53 53 79.3 53 127.7-19 93.7-53 127.7-79.3 53-127.7 53zM309.2 272.2c-1.6-1.6-4.2-2.5-6.7-2.5-2.5 0-5.1.9-6.7 2.5l-32.1 32.1c-1.6 1.6-4.2 2.5-6.7 2.5-2.5 0-5.1-.9-6.7-2.5l-19.2-19.2c-1.6-1.6-2.5-4.2-2.5-6.7s.9-5.1 2.5-6.7l32.1-32.1c1.6-1.6 2.5-4.2 2.5-6.7s-.9-5.1-2.5-6.7l-19.2-19.2c-1.6-1.6-4.2-2.5-6.7-2.5-2.5 0-5.1.9-6.7 2.5l-32.1 32.1c-1.6 1.6-2.5 4.2-2.5 6.7s.9 5.1 2.5 6.7l19.2 19.2c1.6 1.6 2.5 4.2 2.5 6.7s-.9 5.1-2.5 6.7l-32.1 32.1c-1.6 1.6-4.2 2.5-6.7 2.5-2.5 0-5.1-.9-6.7-2.5l-19.2-19.2c-1.6-1.6-2.5-4.2-2.5-6.7s.9-5.1 2.5-6.7z"/>
+            <path d="M380.9 97.1C339.4 55.6 283.9 32 224 32S108.6 55.6 67.1 97.1 32 183.9 32 243.9c0 42.4 13.9 82.1 39.1 113.8L32 480l116.9-31.6c30.7 17.7 65.4 27.9 101.1 27.9 59.9 0 115.4-23.6 156.9-65.1S416 303.9 416 243.9c0-59.9-23.6-115.4-65.1-156.9zM224 416c-35.1 0-69.1-10.2-98.1-29.6l-7.1-4.2L70.5 401l18.4-69.2-4.5-7.2c-20.2-32.3-31.7-69.1-31.7-108.1 0-48.4 19-93.7 53-127.7S175.6 80 224 80s93.7 19 127.7 53 53 79.3 53 127.7-19 93.7-53 127.7-79.3 53-127.7 53zM309.2 272.2c-1.6-1.6-4.2-2.5-6.7-2.5-2.5 0-5.1.9-6.7 2.5l-32.1 32.1c-1.6 1.6-4.2 2.5-6.7 2.5-2.5 0-5.1-.9-6.7-2.5l-19.2-19.2c-1.6-1.6-2.5-4.2-2.5-6.7s.9-5.1 2.5-6.7l32.1-32.1c1.6-1.6 2.5-4.2 2.5-6.7s-.9-5.1-2.5-6.7l-19.2-19.2c-1.6-1.6-4.2-2.5-6.7-2.5-2.5 0-5.1.9-6.7 2.5l-32.1 32.1c-1.6 1.6-4.2 2.5-6.7 2.5-2.5 0-5.1-.9-6.7-2.5l-19.2-19.2c-1.6-1.6-2.5-4.2-2.5-6.7s.9-5.1 2.5-6.7z"/>
         </svg>
     </a>
 

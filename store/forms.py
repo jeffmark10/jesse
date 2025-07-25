@@ -160,3 +160,50 @@ class UserLoginForm(AuthenticationForm):
         })
     )
 
+# store/forms.py (Adicione ao final do arquivo)
+
+class CheckoutForm(forms.Form):
+    full_name = forms.CharField(
+        max_length=255,
+        label="Nome Completo",
+        widget=forms.TextInput(attrs={
+            'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+            'placeholder': 'Seu nome completo'
+        })
+    )
+    email = forms.EmailField(
+        label="Seu E-mail",
+        required=False, # Pode ser opcional se o usuário já estiver logado
+        widget=forms.EmailInput(attrs={
+            'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+            'placeholder': 'seu.email@exemplo.com'
+        })
+    )
+    phone_number = forms.CharField(
+        max_length=20,
+        label="Número de Telefone (WhatsApp)",
+        widget=forms.TextInput(attrs={
+            'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+            'placeholder': 'Ex: 5511987654321 (com DDD)'
+        })
+    )
+    shipping_address = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'rows': 4,
+            'class': 'shadow-sm appearance-none border border-stone-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition duration-200',
+            'placeholder': 'Rua, número, bairro, cidade, estado, CEP'
+        }),
+        label="Endereço de Entrega Completo"
+    )
+
+    # Você pode adicionar mais campos como CPF, complemento, etc., conforme necessário.
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user and user.is_authenticated:
+            self.fields['full_name'].initial = user.get_full_name() or user.username
+            self.fields['email'].initial = user.email
+            # Se você tiver um campo de telefone no perfil do usuário, pode pré-preencher aqui
+            # if hasattr(user, 'profile') and user.profile.phone:
+            #     self.fields['phone_number'].initial = user.profile.phone

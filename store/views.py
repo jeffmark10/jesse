@@ -1,24 +1,24 @@
 # store/views.py
 
-import logging 
+import logging
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse # Importa JsonResponse para respostas AJAX
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm 
-from django.contrib.auth.decorators import login_required, user_passes_test 
-from django.contrib import messages 
-from django.db.models import Q 
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger 
-from urllib.parse import quote 
-from django.conf import settings 
-from django.contrib.auth import login 
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib import messages
+from django.db.models import Q
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from urllib.parse import quote
+from django.conf import settings
+from django.contrib.auth import login
 from django.core.cache import cache # Importa o módulo de cache
 from django.views.decorators.cache import cache_page # Importa o decorador de cache de página
 from django.db import transaction # Importa o módulo de transações
 from django.db import models # NOVO: Importa o módulo models para usar models.Prefetch
 
 # NOVO: Importa os novos modelos
-from .models import Product, Category, Cart, CartItem, Profile, Order, OrderItem 
-from .forms import ContactForm, ProductForm, UserRegistrationForm, UserLoginForm 
+from .models import Product, Category, Cart, CartItem, Profile, Order, OrderItem
+from .forms import ContactForm, ProductForm, UserRegistrationForm, UserLoginForm, CheckoutForm # NOVO: Importa CheckoutForm
 
 # Configura o logger para este módulo
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ def get_categories_tree():
         # Se não estiver no cache, busca no banco de dados
         root_categories = Category.objects.filter(parent__isnull=True).prefetch_related('children')
         # Converte para lista para que o QuerySet seja avaliado e possa ser armazenado no cache
-        categories = list(root_categories) 
+        categories = list(root_categories)
         # Armazena no cache por 1 hora (3600 segundos)
         cache.set('root_categories_tree', categories, 3600)
         logger.debug("Árvore de categorias carregada do DB e cacheada.")
@@ -95,7 +95,7 @@ def get_or_create_cart(request):
                 if not item_created:
                     quantity_to_add = item.quantity
                     available_stock_for_addition = item.product.stock - user_cart_item.quantity
-                    
+
                     if available_stock_for_addition > 0:
                         actual_added_quantity = min(quantity_to_add, available_stock_for_addition)
                         user_cart_item.quantity += actual_added_quantity
@@ -109,17 +109,17 @@ def get_or_create_cart(request):
                         logger.warning(f"Não foi possível migrar '{item.product.name}' para o carrinho do usuário devido ao estoque zero ou insuficiente.")
                 else:
                     logger.debug(f"Item '{item.product.name}' migrado para o carrinho do usuário com quantidade {item.quantity}.")
-                
+
                 item.delete() # Remove o item do carrinho da sessão após a tentativa de migração
-            
+
             if session_cart.items.count() == 0:
                 session_cart.delete()
                 logger.info(f"Carrinho de sessão ({session_cart.id}) excluído após migração.")
-            
+
             if 'cart_id' in request.session:
                 del request.session['cart_id']
                 logger.debug("cart_id removido da sessão após migração.")
-        
+
         return user_cart
     else:
         # Para usuários não logados, usa ou cria um carrinho de sessão
@@ -138,7 +138,7 @@ def get_or_create_cart(request):
             cart = Cart.objects.create(session_key=session_key)
             request.session['cart_id'] = cart.id # Armazena a ID do novo carrinho na sessão
             logger.info(f"Novo carrinho de sessão criado: {cart.id}")
-        
+
         return cart
 
 # NOVO DECORADOR: Garante que apenas vendedores possam acessar a view
@@ -181,8 +181,8 @@ def get_cart_data(cart):
 # --- Views Principais ---
 
 def home_view(request):
-    featured_products_queryset = Product.objects.filter(is_featured=True, stock__gt=0).select_related('category', 'seller')[:4] 
-    
+    featured_products_queryset = Product.objects.filter(is_featured=True, stock__gt=0).select_related('category', 'seller')[:4]
+
     # Prepara os produtos com URLs de imagem otimizadas para o template
     featured_products_for_template = []
     for product in featured_products_queryset:
@@ -206,29 +206,29 @@ def home_view(request):
         }
         featured_products_for_template.append(product_data)
 
-    categories = get_categories_tree() 
+    categories = get_categories_tree()
     context = {
         'featured_products': featured_products_for_template, # Passa a lista com as URLs pré-calculadas
         'page_title': 'Bem-vindo à Jeci Store!',
-        'categories': categories, 
+        'categories': categories,
     }
     logger.debug("Página inicial renderizada.")
     return render(request, 'home.html', context)
 
 def product_list_view(request, category_slug=None):
-    products = Product.objects.filter(stock__gt=0).select_related('category', 'seller') 
+    products = Product.objects.filter(stock__gt=0).select_related('category', 'seller')
     current_category = None
-    search_query = request.GET.get('q') 
-    min_price = request.GET.get('min_price') 
-    max_price = request.GET.get('max_price') 
-    sort_by = request.GET.get('sort_by', 'name') 
+    search_query = request.GET.get('q')
+    min_price = request.GET.get('min_price')
+    max_price = request.GET.get('max_price')
+    sort_by = request.GET.get('sort_by', 'name')
 
     if category_slug:
         current_category = get_object_or_404(Category, slug=category_slug)
         category_ids_to_filter = get_descendant_category_ids(current_category)
         products = products.filter(category__id__in=category_ids_to_filter)
         logger.debug(f"Filtrando produtos por categoria: {current_category.name}")
-    
+
     if search_query:
         products = products.filter(
             Q(name__icontains=search_query) | Q(description__icontains=search_query)
@@ -246,7 +246,7 @@ def product_list_view(request, category_slug=None):
         except ValueError:
             messages.error(request, "Valor mínimo de preço inválido.")
             logger.error(f"Valor mínimo de preço inválido: {min_price}")
-    
+
     if max_price:
         try:
             max_price = float(max_price)
@@ -262,13 +262,13 @@ def product_list_view(request, category_slug=None):
         products = products.order_by('-price')
     elif sort_by == 'name_desc':
         products = products.order_by('-name')
-    elif sort_by == 'created_at': 
+    elif sort_by == 'created_at':
         products = products.order_by('-created_at')
-    else: 
+    else:
         products = products.order_by('name')
     logger.debug(f"Ordenando produtos por: {sort_by}")
 
-    paginator = Paginator(products, 8) 
+    paginator = Paginator(products, 8)
     page_number = request.GET.get('page')
     try:
         products = paginator.page(page_number)
@@ -286,15 +286,15 @@ def product_list_view(request, category_slug=None):
         'current_category': current_category,
         'page_title': current_category.name if current_category else 'Nossos Produtos',
         'categories': categories,
-        'search_query': search_query, 
-        'min_price': min_price, 
-        'max_price': max_price, 
-        'sort_by': sort_by, 
+        'search_query': search_query,
+        'min_price': min_price,
+        'max_price': max_price,
+        'sort_by': sort_by,
     }
     return render(request, 'product_list.html', context)
 
 def product_detail_view(request, pk):
-    product = get_object_or_404(Product.objects.select_related('category', 'seller'), pk=pk) 
+    product = get_object_or_404(Product.objects.select_related('category', 'seller'), pk=pk)
     categories = get_categories_tree()
     context = {
         'product': product,
@@ -323,21 +323,21 @@ def contact_view(request):
             name = form.cleaned_data['name']
             email = form.cleaned_data['email']
             message = form.cleaned_data['message']
-            
+
             logger.info(f"Formulário de contato recebido de {name} ({email}). Mensagem: {message[:50]}...")
-            
+
             messages.success(request, 'Sua mensagem foi enviada com sucesso! Em breve entraremos em contato.')
-            return redirect('store:contact') 
+            return redirect('store:contact')
         else:
             messages.error(request, 'Por favor, corrija os erros no formulário.')
             logger.error(f"Erros no formulário de contato: {form.errors}")
     else:
-        form = ContactForm() 
+        form = ContactForm()
 
     context = {
         'page_title': 'Fale Conosco',
         'categories': categories,
-        'form': form, 
+        'form': form,
     }
     logger.debug("Página 'Fale Conosco' renderizada.")
     return render(request, 'contact.html', context)
@@ -347,7 +347,7 @@ def contact_view(request):
 def add_to_cart(request, product_id):
     product = get_object_or_404(Product, id=product_id)
     cart = get_or_create_cart(request)
-    quantity = int(request.POST.get('quantity', 1)) 
+    quantity = int(request.POST.get('quantity', 1))
 
     if quantity <= 0:
         messages.error(request, "A quantidade deve ser um número positivo.")
@@ -376,20 +376,20 @@ def add_to_cart(request, product_id):
         logger.info(f"Quantidade de '{product.name}' (ID: {product_id}) atualizada no carrinho para {cart_item.quantity}.")
     else:
         logger.info(f"{quantity}x '{product.name}' (ID: {product_id}) adicionado ao carrinho.")
-    
+
     messages.success(request, f"{quantity}x {product.name} adicionado ao carrinho!")
-    
+
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({'success': True, 'message': f"{quantity}x {product.name} adicionado ao carrinho!", **get_cart_data(cart)})
-    return redirect('store:product_detail', pk=product_id) 
+    return redirect('store:product_detail', pk=product_id)
 
 def view_cart(request):
     cart = get_or_create_cart(request)
-    cart_items = cart.items.select_related('product').all() 
+    cart_items = cart.items.select_related('product').all()
     categories = get_categories_tree()
     context = {
         'cart': cart,
-        'cart_items': cart_items, 
+        'cart_items': cart_items,
         'page_title': 'Seu Carrinho',
         'categories': categories,
     }
@@ -397,7 +397,7 @@ def view_cart(request):
     return render(request, 'cart.html', context)
 
 def update_cart_item(request, item_id):
-    cart_item = get_object_or_404(CartItem.objects.select_related('product'), id=item_id) 
+    cart_item = get_object_or_404(CartItem.objects.select_related('product'), id=item_id)
     cart = get_or_create_cart(request)
 
     if cart_item.cart != cart:
@@ -410,7 +410,7 @@ def update_cart_item(request, item_id):
     if request.method == 'POST':
         try:
             new_quantity = int(request.POST.get('quantity'))
-            
+
             if new_quantity <= 0:
                 product_name = cart_item.product.name
                 cart_item.delete()
@@ -437,11 +437,11 @@ def update_cart_item(request, item_id):
             logger.error(f"Quantidade inválida recebida para item ID {item_id}: {request.POST.get('quantity')}")
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': False, 'message': 'Quantidade inválida.'}, status=400)
-    
+
     return redirect('store:view_cart')
 
 def remove_from_cart(request, item_id):
-    cart_item = get_object_or_404(CartItem.objects.select_related('product'), id=item_id) 
+    cart_item = get_object_or_404(CartItem.objects.select_related('product'), id=item_id)
     cart = get_or_create_cart(request)
 
     if cart_item.cart != cart:
@@ -455,98 +455,116 @@ def remove_from_cart(request, item_id):
     cart_item.delete()
     messages.info(request, f"'{product_name}' removido do carrinho.")
     logger.info(f"Item '{product_name}' (ID: {item_id}) removido do carrinho.")
-    
+
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({'success': True, 'message': f"'{product_name}' removido do carrinho.", 'removed_item_id': item_id, **get_cart_data(cart)})
     return redirect('store:view_cart')
 
-# NOVO: View para finalizar a compra e gerar o link do WhatsApp
-def checkout_whatsapp_view(request):
+# NOVO: View para finalizar a compra com formulário
+def checkout_view(request):
     cart = get_or_create_cart(request)
-    
+
     if not cart.items.exists():
         messages.warning(request, "Seu carrinho está vazio. Adicione produtos antes de finalizar a compra.")
-        logger.warning(f"Tentativa de finalizar compra com carrinho vazio para usuário/sessão: {request.user.username if request.user.is_authenticated else request.session.session_key}")
+        logger.warning(f"Tentativa de checkout com carrinho vazio para usuário/sessão: {request.user.username if request.user.is_authenticated else request.session.session_key}")
         return redirect('store:view_cart')
 
-    # NOVO: Validação de estoque final antes de criar o pedido
-    # Usamos uma transação para garantir que as operações de banco de dados sejam atômicas.
-    with transaction.atomic():
-        # Re-verifica o estoque para todos os itens do carrinho
-        items_to_process = []
-        for item in cart.items.select_related('product').all():
-            product = item.product
-            if product.stock < item.quantity:
-                messages.error(request, f"Não foi possível finalizar a compra. O produto '{product.name}' não tem estoque suficiente ({product.stock} disponíveis, você tem {item.quantity} no carrinho).")
-                logger.error(f"Estoque insuficiente no checkout para '{product.name}' (ID: {product.id}).")
-                return redirect('store:view_cart')
-            items_to_process.append(item)
+    if request.method == 'POST':
+        form = CheckoutForm(request.POST, user=request.user)
+        if form.is_valid():
+            full_name = form.cleaned_data['full_name']
+            email = form.cleaned_data['email']
+            phone_number = form.cleaned_data['phone_number']
+            shipping_address = form.cleaned_data['shipping_address']
 
-        # Coleta informações para a mensagem do WhatsApp e para o pedido
-        whatsapp_number = settings.STORE_WHATSAPP_NUMBER 
-        message_parts = [
-            "Olá, gostaria de finalizar meu pedido na Jeci Store!",
-            "Itens no pedido:"
-        ]
-        
-        # NOVO: Coleta de informações de contato e endereço (pode ser um formulário no futuro)
-        # Por enquanto, vamos usar informações básicas do usuário ou um placeholder.
-        user_info = request.user.username if request.user.is_authenticated else "Cliente Anônimo"
-        user_email = request.user.email if request.user.is_authenticated else "Não fornecido"
-        
-        # Em um sistema real, você teria um formulário de checkout para coletar:
-        # - Endereço de entrega
-        # - Telefone/Email para contato
-        # Para esta implementação, vamos usar placeholders ou dados do usuário logado.
-        shipping_address = "Endereço de entrega a ser definido (via WhatsApp)"
-        contact_info = f"Usuário: {user_info}, Email: {user_email}"
+            # Validação de estoque final antes de criar o pedido
+            with transaction.atomic():
+                items_to_process = []
+                for item in cart.items.select_related('product').all():
+                    product = item.product
+                    if product.stock < item.quantity:
+                        messages.error(request, f"Não foi possível finalizar a compra. O produto '{product.name}' não tem estoque suficiente ({product.stock} disponíveis, você tem {item.quantity} no carrinho).")
+                        logger.error(f"Estoque insuficiente no checkout para '{product.name}' (ID: {product.id}).")
+                        return redirect('store:view_cart')
+                    items_to_process.append(item)
 
-        # Cria o objeto Order
-        order = Order.objects.create(
-            user=request.user if request.user.is_authenticated else None,
-            session_key=request.session.session_key if not request.user.is_authenticated else None,
-            shipping_address=shipping_address,
-            contact_info=contact_info,
-            total_price=cart.get_total_price(),
-            status='pending' # Status inicial do pedido
-        )
-        logger.info(f"Pedido #{order.id} criado para {user_info}.")
+                # Cria o objeto Order com os dados do formulário
+                order = Order.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    session_key=request.session.session_key if not request.user.is_authenticated else None,
+                    shipping_address=shipping_address,
+                    contact_info=f"Nome: {full_name}, Email: {email}, Telefone: {phone_number}", # Combina em uma string
+                    total_price=cart.get_total_price(),
+                    status='pending' # Status inicial do pedido
+                )
+                logger.info(f"Pedido #{order.id} criado para {full_name}.")
 
-        # Cria os OrderItems e atualiza o estoque
-        for item in items_to_process:
-            OrderItem.objects.create(
-                order=order,
-                product=item.product,
-                quantity=item.quantity,
-                price_at_purchase=item.product.price, # Salva o preço no momento da compra
-                tracking_code="" # O código de rastreamento real será adicionado pelo vendedor
-            )
-            # Deduz o estoque do produto
-            item.product.stock -= item.quantity
-            item.product.save()
-            message_parts.append(f"- {item.quantity}x {item.product.name} (R${item.product.price:.2f})")
-            if item.product.tracking_code: # Código de referência do produto
-                message_parts.append(f"    Código de Referência: {item.product.tracking_code}")
-            logger.debug(f"Item de pedido criado para '{item.product.name}'. Estoque atualizado para {item.product.stock}.")
+                # Cria os OrderItems e atualiza o estoque
+                whatsapp_message_parts = [
+                    f"Olá, gostaria de finalizar meu pedido na Jeci Store!",
+                    f"Pedido #{order.id}",
+                    f"Cliente: {full_name}",
+                    f"Contato: {phone_number} / {email}",
+                    f"Endereço de Entrega: {shipping_address}",
+                    "\nItens no pedido:"
+                ]
 
-        # Limpa o carrinho após a criação bem-sucedida do pedido
-        cart.items.all().delete()
-        cart.delete()
-        if 'cart_id' in request.session:
-            del request.session['cart_id']
-        logger.info(f"Carrinho (ID: {cart.id}) limpo após a criação do pedido #{order.id}.")
+                for item in items_to_process:
+                    OrderItem.objects.create(
+                        order=order,
+                        product=item.product,
+                        quantity=item.quantity,
+                        price_at_purchase=item.product.price, # Salva o preço no momento da compra
+                        tracking_code="" # O código de rastreamento real será adicionado pelo vendedor
+                    )
+                    # Deduz o estoque do produto
+                    item.product.stock -= item.quantity
+                    item.product.save()
+                    whatsapp_message_parts.append(f"- {item.quantity}x {item.product.name} (R${item.product.price:.2f})")
+                    if item.product.tracking_code: # Código de referência do produto
+                        whatsapp_message_parts.append(f"    Código de Referência: {item.product.tracking_code}")
+                    logger.debug(f"Item de pedido criado para '{item.product.name}'. Estoque atualizado para {item.product.stock}.")
 
-        message_parts.append(f"\nValor Total do Pedido: R${order.total_price:.2f}")
-        message_parts.append(f"Número do Pedido: #{order.id}")
-        message_parts.append("\nPor favor, me ajude a prosseguir com o pagamento e envio.")
+                # Limpa o carrinho após a criação bem-sucedida do pedido
+                cart.items.all().delete()
+                cart.delete()
+                if 'cart_id' in request.session:
+                    del request.session['cart_id']
+                logger.info(f"Carrinho (ID: {cart.id}) limpo após a criação do pedido #{order.id}.")
 
-        full_message = "\n".join(message_parts)
-        encoded_message = quote(full_message)
-        whatsapp_url = f"https://wa.me/{whatsapp_number}?text={encoded_message}"
-        
-        messages.success(request, f"Seu pedido #{order.id} foi criado com sucesso! Redirecionando para o WhatsApp para finalizar.")
-        logger.info(f"Link de checkout do WhatsApp gerado para o pedido {order.id}.")
-        return redirect(whatsapp_url)
+                whatsapp_message_parts.append(f"\nValor Total do Pedido: R${order.total_price:.2f}")
+                whatsapp_message_parts.append("\nPor favor, me ajude a prosseguir com o pagamento e envio.")
+
+                full_whatsapp_message = "\n".join(whatsapp_message_parts)
+                encoded_message = quote(full_whatsapp_message)
+                whatsapp_url = f"https://wa.me/{settings.STORE_WHATSAPP_NUMBER}?text={encoded_message}"
+
+                messages.success(request, f"Seu pedido #{order.id} foi criado com sucesso! Redirecionando para o WhatsApp para finalizar.")
+                logger.info(f"Link de checkout do WhatsApp gerado para o pedido {order.id}.")
+                return redirect(whatsapp_url)
+        else:
+            messages.error(request, 'Por favor, corrija os erros no formulário de checkout.')
+            logger.error(f"Erros no formulário de checkout: {form.errors}")
+    else:
+        # Pré-preenche o formulário com dados do usuário logado, se houver
+        form = CheckoutForm(user=request.user)
+
+    categories = get_categories_tree()
+    context = {
+        'page_title': 'Finalizar Compra',
+        'cart': cart,
+        'form': form,
+        'categories': categories,
+    }
+    return render(request, 'checkout.html', context)
+
+# A view original `checkout_whatsapp_view` agora redireciona para a nova `checkout_view`
+# para garantir que o fluxo de checkout passe pelo formulário.
+def checkout_whatsapp_view(request):
+    """
+    Redireciona para a nova view de checkout com formulário.
+    """
+    return redirect('store:checkout')
 
 
 # --- Views de Autenticação e Perfil (Básicas) ---
@@ -554,18 +572,18 @@ def checkout_whatsapp_view(request):
 def signup_view(request):
     categories = get_categories_tree()
     if request.method == 'POST':
-        form = UserRegistrationForm(request.POST) 
+        form = UserRegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user) 
+            login(request, user)
             messages.success(request, 'Sua conta foi criada com sucesso! Você está logado(a).')
             logger.info(f"Novo usuário registrado e logado: {user.username}")
-            return redirect('home') 
+            return redirect('home')
         else:
             messages.error(request, 'Por favor, corrija os erros no formulário de registro.')
             logger.error(f"Erros no formulário de registro: {form.errors}")
     else:
-        form = UserRegistrationForm() 
+        form = UserRegistrationForm()
     context = {
         'page_title': 'Registrar-se',
         'form': form,
@@ -577,18 +595,18 @@ def signup_view(request):
 def login_view(request):
     categories = get_categories_tree()
     if request.method == 'POST':
-        form = UserLoginForm(request, data=request.POST) 
+        form = UserLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
             messages.success(request, f"Bem-vindo(a) de volta, {user.username}!")
             logger.info(f"Usuário logado: {user.username}")
-            return redirect('home') 
+            return redirect('home')
         else:
             messages.error(request, "Nome de usuário ou senha inválidos.")
             logger.warning(f"Tentativa de login falhou para o usuário: {request.POST.get('username')}")
     else:
-        form = UserLoginForm() 
+        form = UserLoginForm()
     context = {
         'page_title': 'Entrar',
         'form': form,
@@ -598,7 +616,7 @@ def login_view(request):
     return render(request, 'registration/login.html', context)
 
 
-@login_required 
+@login_required
 def user_profile_view(request):
     categories = get_categories_tree()
     # NOVO: Busca os pedidos do usuário logado
@@ -606,14 +624,14 @@ def user_profile_view(request):
     user_orders = Order.objects.filter(user=request.user).order_by('-created_at').prefetch_related(
         models.Prefetch('items', queryset=OrderItem.objects.select_related('product'))
     )
-    
+
     context = {
         'page_title': f'Perfil de {request.user.username}',
         'categories': categories,
         'user_orders': user_orders, # Passa os pedidos para o template
     }
     logger.debug(f"Perfil do usuário {request.user.username} renderizado.")
-    return render(request, 'registration/user_profile.html', context) 
+    return render(request, 'registration/user_profile.html', context)
 
 # --- Manipuladores de Erro Personalizados ---
 
@@ -638,7 +656,7 @@ def custom_500_view(request):
 
 # --- NOVAS VIEWS PARA VENDEDORES ---
 
-@seller_required 
+@seller_required
 def add_product_view(request):
     categories = get_categories_tree()
     if request.method == 'POST':
@@ -655,7 +673,7 @@ def add_product_view(request):
             logger.error(f"Erro ao adicionar produto por {request.user.username}: {form.errors}")
     else:
         form = ProductForm()
-    
+
     context = {
         'page_title': 'Adicionar Novo Produto',
         'form': form,
@@ -665,23 +683,23 @@ def add_product_view(request):
     return render(request, 'store/seller/seller_add_product.html', context)
 
 
-@seller_required 
+@seller_required
 def my_products_view(request):
-    categories_tree = get_categories_tree() 
-    products = Product.objects.filter(seller=request.user).select_related('category', 'seller') 
+    categories_tree = get_categories_tree()
+    products = Product.objects.filter(seller=request.user).select_related('category', 'seller')
 
     search_query = request.GET.get('q')
     min_price = request.GET.get('min_price')
     max_price = request.GET.get('max_price')
-    category_slug = request.GET.get('category_slug') 
-    stock_status = request.GET.get('stock_status') 
-    sort_by = request.GET.get('sort_by', '-created_at') 
+    category_slug = request.GET.get('category_slug')
+    stock_status = request.GET.get('stock_status')
+    sort_by = request.GET.get('sort_by', '-created_at')
 
     if search_query:
         products = products.filter(
-            Q(name__icontains=search_query) | 
+            Q(name__icontains=search_query) |
             Q(description__icontains=search_query) |
-            Q(tracking_code__icontains=search_query) 
+            Q(tracking_code__icontains=search_query)
         ).distinct()
         logger.debug(f"Busca aplicada aos produtos do vendedor: '{search_query}'.")
 
@@ -711,7 +729,7 @@ def my_products_view(request):
         except ValueError:
             messages.error(request, "Valor mínimo de preço inválido.")
             logger.error(f"Valor mínimo de preço inválido para produtos do vendedor: {min_price}")
-    
+
     if max_price:
         try:
             max_price = float(max_price)
@@ -725,17 +743,17 @@ def my_products_view(request):
         products = products.order_by('price')
     elif sort_by == 'price_desc':
         products = products.order_by('-price')
-    elif sort_by == 'name_asc': 
+    elif sort_by == 'name_asc':
         products = products.order_by('name')
     elif sort_by == 'name_desc':
         products = products.order_by('-name')
-    elif sort_by == 'stock_asc': 
+    elif sort_by == 'stock_asc':
         products = products.order_by('stock')
-    elif sort_by == 'stock_desc': 
+    elif sort_by == 'stock_desc':
         products = products.order_by('-stock')
     elif sort_by == 'created_at':
-        products = products.order_by('created_at') 
-    else: 
+        products = products.order_by('created_at')
+    else:
         products = products.order_by('-created_at')
     logger.debug(f"Ordenando produtos do vendedor por: {sort_by}")
 
@@ -746,28 +764,28 @@ def my_products_view(request):
         logger.debug(f"Página {products.number} de produtos do vendedor {request.user.username} carregada.")
     except PageNotAnInteger:
         products = paginator.page(1)
-        logger.warning(f"Número de página inválido '{page_number}' para produtos do vendedor. Redirecionando para a primeira página.")
+        logger.warning(f"Número de página inválido '{page_number}'. Redirecionando para a primeira página.")
     except EmptyPage:
         products = paginator.page(paginator.num_pages)
         logger.warning(f"Página '{page_number}' fora do intervalo para produtos do vendedor. Redirecionando para a última página.")
-        
+
     context = {
         'page_title': 'Meus Produtos',
         'products': products,
-        'categories': categories_tree, 
+        'categories': categories_tree,
         'search_query': search_query,
         'min_price': min_price,
         'max_price': max_price,
-        'current_category_filter': current_category_filter, 
-        'stock_status': stock_status, 
+        'current_category_filter': current_category_filter,
+        'stock_status': stock_status,
         'sort_by': sort_by,
     }
     return render(request, 'store/seller/seller_my_products.html', context)
 
 
-@seller_required 
+@seller_required
 def edit_product_view(request, pk):
-    product = get_object_or_404(Product.objects.select_related('category', 'seller'), pk=pk, seller=request.user) 
+    product = get_object_or_404(Product.objects.select_related('category', 'seller'), pk=pk, seller=request.user)
     categories = get_categories_tree()
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES, instance=product)
@@ -781,7 +799,7 @@ def edit_product_view(request, pk):
             logger.error(f"Erro ao editar produto '{product.name}' (ID: {product.pk}) por {request.user.username}: {form.errors}")
     else:
         form = ProductForm(instance=product)
-    
+
     context = {
         'page_title': f'Editar Produto: {product.name}',
         'form': form,
@@ -792,7 +810,7 @@ def edit_product_view(request, pk):
     return render(request, 'store/seller/seller_edit_product.html', context)
 
 
-@seller_required 
+@seller_required
 def delete_product_view(request, pk):
     product = get_object_or_404(Product, pk=pk, seller=request.user)
     if request.method == 'POST':
@@ -801,7 +819,7 @@ def delete_product_view(request, pk):
         messages.info(request, f"Produto '{product_name}' excluído com sucesso.")
         logger.info(f"Produto '{product_name}' (ID: {pk}) excluído por {request.user.username}.")
         return redirect('store:my_products')
-    
+
     messages.error(request, "Método inválido para exclusão. Confirme a exclusão via POST.")
     logger.warning(f"Tentativa de exclusão de produto (ID: {pk}) com método inválido por {request.user.username}.")
     return redirect('store:my_products')
@@ -816,7 +834,7 @@ def seller_orders_view(request):
     # Usamos distinct() para evitar pedidos duplicados se o vendedor tiver vários itens no mesmo pedido.
     # Prefetch_related para otimizar o acesso aos itens do pedido e seus produtos.
     seller_products_ids = Product.objects.filter(seller=request.user).values_list('id', flat=True)
-    
+
     # Filtra OrderItems cujos produtos pertencem ao vendedor
     order_items_for_seller = OrderItem.objects.filter(product__id__in=seller_products_ids).select_related('order', 'product')
 
@@ -832,7 +850,7 @@ def seller_orders_view(request):
     # Filtros para a lista de pedidos do vendedor
     search_query = request.GET.get('q')
     status_filter = request.GET.get('status')
-    
+
     if search_query:
         orders = orders.filter(
             Q(id__icontains=search_query) | # Busca por ID do pedido
@@ -870,7 +888,7 @@ def seller_orders_view(request):
 @seller_required
 def seller_order_detail_view(request, order_id):
     categories = get_categories_tree()
-    
+
     # Garante que o pedido exista e que contenha pelo menos um produto do vendedor logado
     order = get_object_or_404(Order.objects.prefetch_related(
         models.Prefetch('items', queryset=OrderItem.objects.select_related('product'))
@@ -878,7 +896,7 @@ def seller_order_detail_view(request, order_id):
 
     # Filtra os itens do pedido para mostrar apenas os que pertencem ao vendedor logado
     seller_order_items = [
-        item for item in order.items.all() 
+        item for item in order.items.all()
         if item.product and item.product.seller == request.user
     ]
 
@@ -917,10 +935,6 @@ def seller_update_order_item_status(request, item_id):
         # Valida o novo status
         valid_statuses = [choice[0] for choice in Order.STATUS_CHOICES]
         if new_status and new_status in valid_statuses:
-            # Atualiza o status do OrderItem e do Order se for o primeiro item a ser atualizado
-            # Ou se for uma mudança de status que afeta o pedido geral (ex: 'shipped' para todos os itens)
-            # Para simplificar, vamos atualizar o status do Order principal se todos os itens do vendedor forem enviados.
-            
             # Atualiza o código de rastreamento do OrderItem
             order_item.tracking_code = new_tracking_code
             order_item.save()
@@ -931,14 +945,10 @@ def seller_update_order_item_status(request, item_id):
             # e o status do pedido ainda for 'processing' ou 'pending',
             # pode-se considerar atualizar o status do Order para 'shipped'.
             # Isso é uma lógica de negócio que pode ser ajustada.
-            
+
             # Exemplo simples: Se o status do OrderItem for 'shipped', e o Order ainda for 'pending'/'processing',
             # atualiza o Order para 'processing' ou 'shipped' (dependendo da sua regra de negócio).
             # Para uma lógica mais complexa, você pode verificar o status de *todos* os OrderItems do pedido.
-            
-            # Para simplificar, vamos permitir que o vendedor atualize o status do OrderItem
-            # e o status do Order principal se ele for o único vendedor no pedido ou se for uma atualização simples.
-            # Uma abordagem mais robusta seria ter um status por OrderItem e um status geral do Order.
 
             # Para simplificar, vamos atualizar o status do Order principal se o status do item for enviado.
             # Isso pode ser refinado para um status geral do pedido baseado no status de todos os seus itens.

@@ -19,7 +19,10 @@ urlpatterns = [
     path('carrinho/', views.view_cart, name='view_cart'),
     path('carrinho/atualizar/<int:item_id>/', views.update_cart_item, name='update_cart_item'),
     path('carrinho/remover/<int:item_id>/', views.remove_from_cart, name='remove_from_cart'),
-    path('carrinho/finalizar-whatsapp/', views.checkout_whatsapp_view, name='checkout_whatsapp'), # Esta linha é crucial!
+    # NOVA ROTA: Checkout com formulário
+    path('carrinho/checkout/', views.checkout_view, name='checkout'),
+    # A rota original `checkout_whatsapp` agora redireciona para a nova `checkout` view
+    path('carrinho/finalizar-whatsapp/', views.checkout_whatsapp_view, name='checkout_whatsapp'),
 
     # Rotas de Autenticação e Perfil
     path('registrar/', views.signup_view, name='signup'),
@@ -31,7 +34,7 @@ urlpatterns = [
     path('vendedor/meus-produtos/', views.my_products_view, name='my_products'),
     path('vendedor/editar-produto/<int:pk>/', views.edit_product_view, name='edit_product'),
     path('vendedor/excluir-produto/<int:pk>/', views.delete_product_view, name='delete_product'),
-    
+
     # NOVO: Rotas de Gerenciamento de Pedidos para Vendedores
     path('vendedor/pedidos/', views.seller_orders_view, name='seller_orders'),
     path('vendedor/pedidos/<int:order_id>/', views.seller_order_detail_view, name='seller_order_detail'),
