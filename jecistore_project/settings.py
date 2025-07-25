@@ -36,7 +36,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # NOVO: Adicionado WhiteNoise para servir ficheiros estáticos
+    'whitenoise.middleware.WhiteNoiseMiddleware', # Adicionado WhiteNoise para servir ficheiros estáticos
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -96,14 +96,17 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
 
-# NOVO: Configuração para WhiteNoise
-# Isto diz ao WhiteNoise para comprimir e cachear os ficheiros estáticos
+# Configuração para WhiteNoise
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Cloudinary configuration (moved outside the DEBUG block to be always available)
 CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
 CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
 CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
+
+# NOVO: Força o Cloudinary a usar HTTPS para todas as URLs geradas
+CLOUDINARY_SECURE_DISTRIBUTION = True 
+CLOUDINARY_SECURE = True 
 
 if not DEBUG:
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
