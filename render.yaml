@@ -5,8 +5,7 @@ services:
   - type: web # Define este serviço como um aplicativo web
     name: jecistore # Nome do seu serviço web no Render
     env: python # O ambiente de tempo de execução é Python
-    # Informa ao Render onde encontrar os arquivos estáticos coletados
-    static_files_path: staticfiles
+    # REMOVIDO: static_files_path, pois WhiteNoise irá servir os ficheiros estáticos
     # Comando de construção: instala dependências, coleta arquivos estáticos e executa migrações
     buildCommand: |
       set -ex # Sai imediatamente se um comando falhar, e imprime comandos executados (para depuração)
