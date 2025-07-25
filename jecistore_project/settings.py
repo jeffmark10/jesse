@@ -1,8 +1,8 @@
 # jecistore_project/settings.py
 import os
 from pathlib import Path
-import environ 
-import sys 
+import environ
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -11,12 +11,12 @@ env = environ.Env()
 
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-SECRET_KEY = env('DJANGO_SECRET_KEY') 
+SECRET_KEY = env('DJANGO_SECRET_KEY')
 
 DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
 if DEBUG:
-    ALLOWED_HOSTS = ['*'] 
+    ALLOWED_HOSTS = ['*']
 else:
     allowed_hosts_from_env = env.list('DJANGO_ALLOWED_HOSTS', default=[])
     essential_hosts = ['jecistore.onrender.com', '127.0.0.1', 'localhost']
@@ -29,9 +29,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'store', 
-    'cloudinary', 
-    'cloudinary_storage', 
+    'store',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -50,7 +50,7 @@ ROOT_URLCONF = 'jecistore_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')], 
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -58,7 +58,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'store.context_processors.cart_items_count', 
+                'store.context_processors.cart_items_count',
             ],
         },
     },
@@ -88,13 +88,18 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-LANGUAGE_CODE = 'pt-br' 
-TIME_ZONE = 'America/Sao_Paulo' 
+LANGUAGE_CODE = 'pt-br'
+TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# ADICIONE ISTO: Onde Django deve procurar arquivos estáticos extras
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'), # Seu diretório static existente, agora incluindo static/dist
+]
 
 # Configuração para WhiteNoise
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -105,26 +110,26 @@ CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
 CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
 
 # NOVO: Força o Cloudinary a usar HTTPS para todas as URLs geradas
-CLOUDINARY_SECURE_DISTRIBUTION = True 
-CLOUDINARY_SECURE = True 
+CLOUDINARY_SECURE_DISTRIBUTION = True
+CLOUDINARY_SECURE = True
 
 if not DEBUG:
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    MEDIA_URL = '/media/' 
+    MEDIA_URL = '/media/'
 else:
     MEDIA_URL = '/media/'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-LOGIN_REDIRECT_URL = 'home' 
-LOGOUT_REDIRECT_URL = 'home' 
-LOGIN_URL = 'login' 
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'home'
+LOGIN_URL = 'login'
 
 HANDLER404 = 'store.views.custom_404_view'
 HANDLER500 = 'store.views.custom_500_view'
 
-STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER', default='5586981247491') 
+STORE_WHATSAPP_NUMBER = env('STORE_WHATSAPP_NUMBER', default='5586981247491')
 
 # Configuração de Logging (NOVO)
 LOGGING = {
@@ -190,8 +195,8 @@ if not DEBUG:
 
 # Alerta em produção se DEBUG estiver ativado (apenas para depuração no Render)
 if not DEBUG:
-    if 'runserver' not in sys.argv: 
-        pass 
+    if 'runserver' not in sys.argv:
+        pass
 
 # Configuração de Cache (NOVO)
 CACHES = {
