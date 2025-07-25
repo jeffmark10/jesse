@@ -9,9 +9,9 @@ services:
     static_files_path: staticfiles 
     # Comando de construção: instala dependências, coleta arquivos estáticos e executa migrações
     buildCommand: |
-      set -e # Sai imediatamente se um comando falhar
+      set -ex # Sai imediatamente se um comando falhar, e imprime comandos executados (NOVO: -x para depuração)
       pip install -r requirements.txt # Instala as dependências listadas em requirements.txt
-      python manage.py collectstatic --noinput # Coleta todos os arquivos estáticos
+      python manage.py collectstatic --noinput -v 2 # Coleta todos os arquivos estáticos (NOVO: -v 2 para verbosidade)
       python manage.py migrate # Aplica as migrações do banco de dados
       
       # --- Debugging para o Superusuário ---
@@ -75,8 +75,9 @@ services:
         value: jeffersongarcia2013@gmail.com # Altere para o e-mail desejado
       - key: DJANGO_SUPERUSER_PASSWORD
         generateValue: true # O Render pode gerar um valor seguro para você, ou defina um valor fixo
+      # NOVO: Variável para logs não bufferizados
+      - key: PYTHONUNBUFFERED
+        value: "1"
 databases: # Configuração do banco de dados
   - name: jecistore-database # Nome do seu banco de dados no Render
-    type: postgres # Tipo de banco de dados: PostgreSQL
     plan: free # Plano do banco de dados (pode ser 'standard' para mais recursos em produção)
-
