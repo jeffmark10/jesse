@@ -11,8 +11,13 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from urllib.parse import quote 
 from django.conf import settings 
 from django.contrib.auth import login 
+from django.core.cache import cache # Importa o módulo de cache
+from django.views.decorators.cache import cache_page # Importa o decorador de cache de página
+from django.db import transaction # Importa o módulo de transações
+from django.db import models # NOVO: Importa o módulo models para usar models.Prefetch
 
-from .models import Product, Category, Cart, CartItem, Profile 
+# NOVO: Importa os novos modelos
+from .models import Product, Category, Cart, CartItem, Profile, Order, OrderItem 
 from .forms import ContactForm, ProductForm, UserRegistrationForm, UserLoginForm 
 
 # Configura o logger para este módulo
@@ -33,11 +38,21 @@ def get_descendant_category_ids(category):
 def get_categories_tree():
     """
     Busca todas as categorias de nível superior e pré-carrega seus filhos
-    para construir a árvore de categorias no menu.
+    para construir a árvore de categorias no menu. Usa cache para otimização.
     """
-    # Usa prefetch_related para otimizar a busca por subcategorias
-    root_categories = Category.objects.filter(parent__isnull=True).prefetch_related('children')
-    return root_categories
+    # Tenta obter as categorias do cache
+    categories = cache.get('root_categories_tree')
+    if categories is None:
+        # Se não estiver no cache, busca no banco de dados
+        root_categories = Category.objects.filter(parent__isnull=True).prefetch_related('children')
+        # Converte para lista para que o QuerySet seja avaliado e possa ser armazenado no cache
+        categories = list(root_categories) 
+        # Armazena no cache por 1 hora (3600 segundos)
+        cache.set('root_categories_tree', categories, 3600)
+        logger.debug("Árvore de categorias carregada do DB e cacheada.")
+    else:
+        logger.debug("Árvore de categorias carregada do cache.")
+    return categories
 
 def get_or_create_cart(request):
     """
@@ -153,8 +168,8 @@ def get_cart_data(cart):
             'price': float(item.product.price), # Converte Decimal para float para JSON
             'total_item_price': float(item.get_total_price()),
             'stock': item.product.stock,
-            'image_url': item.product.image.url if item.product.image else settings.STATIC_URL + 'favicon.png', # Fallback para imagem
-            'tracking_code': item.product.tracking_code,
+            'image_url': item.product.get_optimized_image_url(width=50, height=50, crop='fill') if item.product.image else settings.STATIC_URL + 'favicon.png', # Fallback para imagem
+            'tracking_code': item.product.tracking_code, # Código de referência do produto
         })
     return {
         'cart_count': cart.items.count(),
@@ -166,10 +181,34 @@ def get_cart_data(cart):
 # --- Views Principais ---
 
 def home_view(request):
-    featured_products = Product.objects.filter(is_featured=True, stock__gt=0).select_related('category', 'seller')[:4] 
+    featured_products_queryset = Product.objects.filter(is_featured=True, stock__gt=0).select_related('category', 'seller')[:4] 
+    
+    # Prepara os produtos com URLs de imagem otimizadas para o template
+    featured_products_for_template = []
+    for product in featured_products_queryset:
+        product_data = {
+            'pk': product.pk,
+            'name': product.name,
+            'price': product.price,
+            'image': product.image, # Mantém o objeto CloudinaryField para o método
+            'optimized_src': product.get_optimized_image_url(width=400, height=400, crop='fill'),
+            'optimized_srcset': f"{product.get_optimized_image_url(width=200, height=200, crop='fill')} 200w, " \
+                                f"{product.get_optimized_image_url(width=400, height=400, crop='fill')} 400w, " \
+                                f"{product.get_optimized_image_url(width=600, height=600, crop='fill')} 600w",
+            # Adicione outros campos necessários se o template os usar
+            'category': product.category,
+            'seller': product.seller,
+            'stock': product.stock,
+            'is_featured': product.is_featured,
+            'created_at': product.created_at,
+            'updated_at': product.updated_at,
+            'tracking_code': product.tracking_code,
+        }
+        featured_products_for_template.append(product_data)
+
     categories = get_categories_tree() 
     context = {
-        'featured_products': featured_products,
+        'featured_products': featured_products_for_template, # Passa a lista com as URLs pré-calculadas
         'page_title': 'Bem-vindo à Jeci Store!',
         'categories': categories, 
     }
@@ -195,8 +234,9 @@ def product_list_view(request, category_slug=None):
             Q(name__icontains=search_query) | Q(description__icontains=search_query)
         ).distinct()
         logger.debug(f"Aplicando busca por: '{search_query}'. Resultados: {products.count()}")
-        if not products.exists():
-            messages.info(request, f"Nenhum produto encontrado para '{search_query}'.")
+        # A mensagem para "nenhum produto encontrado" é agora tratada no template product_list.html
+        # if not products.exists():
+        #     messages.info(request, f"Nenhum produto encontrado para '{search_query}'.")
 
     if min_price:
         try:
@@ -264,6 +304,7 @@ def product_detail_view(request, pk):
     logger.debug(f"Detalhes do produto {product.name} (ID: {pk}) renderizados.")
     return render(request, 'product_detail.html', context)
 
+@cache_page(60 * 15) # Cache por 15 minutos
 def about_view(request):
     categories = get_categories_tree()
     context = {
@@ -273,6 +314,7 @@ def about_view(request):
     logger.debug("Página 'Sobre Nós' renderizada.")
     return render(request, 'about.html', context)
 
+@cache_page(60 * 15) # Cache por 15 minutos
 def contact_view(request):
     categories = get_categories_tree()
     if request.method == 'POST':
@@ -427,34 +469,84 @@ def checkout_whatsapp_view(request):
         logger.warning(f"Tentativa de finalizar compra com carrinho vazio para usuário/sessão: {request.user.username if request.user.is_authenticated else request.session.session_key}")
         return redirect('store:view_cart')
 
-    whatsapp_number = settings.STORE_WHATSAPP_NUMBER 
+    # NOVO: Validação de estoque final antes de criar o pedido
+    # Usamos uma transação para garantir que as operações de banco de dados sejam atômicas.
+    with transaction.atomic():
+        # Re-verifica o estoque para todos os itens do carrinho
+        items_to_process = []
+        for item in cart.items.select_related('product').all():
+            product = item.product
+            if product.stock < item.quantity:
+                messages.error(request, f"Não foi possível finalizar a compra. O produto '{product.name}' não tem estoque suficiente ({product.stock} disponíveis, você tem {item.quantity} no carrinho).")
+                logger.error(f"Estoque insuficiente no checkout para '{product.name}' (ID: {product.id}).")
+                return redirect('store:view_cart')
+            items_to_process.append(item)
 
-    message_parts = [
-        "Olá, gostaria de finalizar meu pedido na Jeci Store!",
-        "Itens no carrinho:"
-    ]
-    tracking_codes = []
+        # Coleta informações para a mensagem do WhatsApp e para o pedido
+        whatsapp_number = settings.STORE_WHATSAPP_NUMBER 
+        message_parts = [
+            "Olá, gostaria de finalizar meu pedido na Jeci Store!",
+            "Itens no pedido:"
+        ]
+        
+        # NOVO: Coleta de informações de contato e endereço (pode ser um formulário no futuro)
+        # Por enquanto, vamos usar informações básicas do usuário ou um placeholder.
+        user_info = request.user.username if request.user.is_authenticated else "Cliente Anônimo"
+        user_email = request.user.email if request.user.is_authenticated else "Não fornecido"
+        
+        # Em um sistema real, você teria um formulário de checkout para coletar:
+        # - Endereço de entrega
+        # - Telefone/Email para contato
+        # Para esta implementação, vamos usar placeholders ou dados do usuário logado.
+        shipping_address = "Endereço de entrega a ser definido (via WhatsApp)"
+        contact_info = f"Usuário: {user_info}, Email: {user_email}"
 
-    for item in cart.items.select_related('product').all():
-        message_parts.append(f"- {item.quantity}x {item.product.name} (R${item.product.price:.2f})")
-        if item.product.tracking_code:
-            tracking_codes.append(f"    Código de Rastreamento: {item.product.tracking_code}")
-    
-    if tracking_codes:
-        message_parts.append("\nCódigos de Rastreamento dos Produtos (para referência):")
-        message_parts.extend(tracking_codes)
-    
-    message_parts.append(f"\nValor Total: R${cart.get_total_price():.2f}")
-    message_parts.append("\nPor favor, me ajude a prosseguir com o pagamento e envio.")
+        # Cria o objeto Order
+        order = Order.objects.create(
+            user=request.user if request.user.is_authenticated else None,
+            session_key=request.session.session_key if not request.user.is_authenticated else None,
+            shipping_address=shipping_address,
+            contact_info=contact_info,
+            total_price=cart.get_total_price(),
+            status='pending' # Status inicial do pedido
+        )
+        logger.info(f"Pedido #{order.id} criado para {user_info}.")
 
-    full_message = "\n".join(message_parts)
-    
-    encoded_message = quote(full_message)
-    
-    whatsapp_url = f"https://wa.me/{whatsapp_number}?text={encoded_message}"
-    
-    logger.info(f"Link de checkout do WhatsApp gerado para o carrinho {cart.id}.")
-    return redirect(whatsapp_url)
+        # Cria os OrderItems e atualiza o estoque
+        for item in items_to_process:
+            OrderItem.objects.create(
+                order=order,
+                product=item.product,
+                quantity=item.quantity,
+                price_at_purchase=item.product.price, # Salva o preço no momento da compra
+                tracking_code="" # O código de rastreamento real será adicionado pelo vendedor
+            )
+            # Deduz o estoque do produto
+            item.product.stock -= item.quantity
+            item.product.save()
+            message_parts.append(f"- {item.quantity}x {item.product.name} (R${item.product.price:.2f})")
+            if item.product.tracking_code: # Código de referência do produto
+                message_parts.append(f"    Código de Referência: {item.product.tracking_code}")
+            logger.debug(f"Item de pedido criado para '{item.product.name}'. Estoque atualizado para {item.product.stock}.")
+
+        # Limpa o carrinho após a criação bem-sucedida do pedido
+        cart.items.all().delete()
+        cart.delete()
+        if 'cart_id' in request.session:
+            del request.session['cart_id']
+        logger.info(f"Carrinho (ID: {cart.id}) limpo após a criação do pedido #{order.id}.")
+
+        message_parts.append(f"\nValor Total do Pedido: R${order.total_price:.2f}")
+        message_parts.append(f"Número do Pedido: #{order.id}")
+        message_parts.append("\nPor favor, me ajude a prosseguir com o pagamento e envio.")
+
+        full_message = "\n".join(message_parts)
+        encoded_message = quote(full_message)
+        whatsapp_url = f"https://wa.me/{whatsapp_number}?text={encoded_message}"
+        
+        messages.success(request, f"Seu pedido #{order.id} foi criado com sucesso! Redirecionando para o WhatsApp para finalizar.")
+        logger.info(f"Link de checkout do WhatsApp gerado para o pedido {order.id}.")
+        return redirect(whatsapp_url)
 
 
 # --- Views de Autenticação e Perfil (Básicas) ---
@@ -509,9 +601,16 @@ def login_view(request):
 @login_required 
 def user_profile_view(request):
     categories = get_categories_tree()
+    # NOVO: Busca os pedidos do usuário logado
+    # Usa select_related para buscar o usuário e prefetch_related para os itens do pedido e seus produtos
+    user_orders = Order.objects.filter(user=request.user).order_by('-created_at').prefetch_related(
+        models.Prefetch('items', queryset=OrderItem.objects.select_related('product'))
+    )
+    
     context = {
         'page_title': f'Perfil de {request.user.username}',
         'categories': categories,
+        'user_orders': user_orders, # Passa os pedidos para o template
     }
     logger.debug(f"Perfil do usuário {request.user.username} renderizado.")
     return render(request, 'registration/user_profile.html', context) 
@@ -707,3 +806,173 @@ def delete_product_view(request, pk):
     logger.warning(f"Tentativa de exclusão de produto (ID: {pk}) com método inválido por {request.user.username}.")
     return redirect('store:my_products')
 
+
+# NOVO: Views para Gerenciamento de Pedidos do Vendedor
+@seller_required
+def seller_orders_view(request):
+    categories = get_categories_tree()
+    # Busca todos os OrderItems que contêm produtos deste vendedor
+    # E então busca os Orders únicos associados a esses OrderItems.
+    # Usamos distinct() para evitar pedidos duplicados se o vendedor tiver vários itens no mesmo pedido.
+    # Prefetch_related para otimizar o acesso aos itens do pedido e seus produtos.
+    seller_products_ids = Product.objects.filter(seller=request.user).values_list('id', flat=True)
+    
+    # Filtra OrderItems cujos produtos pertencem ao vendedor
+    order_items_for_seller = OrderItem.objects.filter(product__id__in=seller_products_ids).select_related('order', 'product')
+
+    # Obtém os IDs dos pedidos únicos
+    order_ids = order_items_for_seller.values_list('order__id', flat=True).distinct()
+
+    # Busca os pedidos completos que contêm os produtos do vendedor
+    # Prefetch os itens do pedido para evitar consultas N+1 ao exibir detalhes
+    orders = Order.objects.filter(id__in=order_ids).order_by('-created_at').prefetch_related(
+        models.Prefetch('items', queryset=OrderItem.objects.filter(product__id__in=seller_products_ids).select_related('product'))
+    )
+
+    # Filtros para a lista de pedidos do vendedor
+    search_query = request.GET.get('q')
+    status_filter = request.GET.get('status')
+    
+    if search_query:
+        orders = orders.filter(
+            Q(id__icontains=search_query) | # Busca por ID do pedido
+            Q(user__username__icontains=search_query) | # Busca por nome de usuário
+            Q(shipping_address__icontains=search_query) | # Busca por endereço
+            Q(contact_info__icontains=search_query) | # Busca por contato
+            Q(items__product__name__icontains=search_query) | # Busca por nome do produto no item
+            Q(items__tracking_code__icontains=search_query) # Busca por código de rastreamento no item
+        ).distinct() # Usa distinct para evitar duplicação de pedidos se a busca encontrar múltiplos itens no mesmo pedido
+
+    if status_filter and status_filter != 'all':
+        orders = orders.filter(status=status_filter)
+
+    paginator = Paginator(orders, 10)
+    page_number = request.GET.get('page')
+    try:
+        orders = paginator.page(page_number)
+    except PageNotAnInteger:
+        orders = paginator.page(1)
+    except EmptyPage:
+        orders = paginator.page(paginator.num_pages)
+
+    context = {
+        'page_title': 'Meus Pedidos de Venda',
+        'orders': orders,
+        'categories': categories,
+        'search_query': search_query,
+        'status_filter': status_filter,
+        'all_statuses': Order.STATUS_CHOICES, # Para o dropdown de status
+    }
+    logger.debug(f"Página 'Meus Pedidos de Venda' renderizada para {request.user.username}.")
+    return render(request, 'store/seller/seller_orders.html', context)
+
+
+@seller_required
+def seller_order_detail_view(request, order_id):
+    categories = get_categories_tree()
+    
+    # Garante que o pedido exista e que contenha pelo menos um produto do vendedor logado
+    order = get_object_or_404(Order.objects.prefetch_related(
+        models.Prefetch('items', queryset=OrderItem.objects.select_related('product'))
+    ), id=order_id)
+
+    # Filtra os itens do pedido para mostrar apenas os que pertencem ao vendedor logado
+    seller_order_items = [
+        item for item in order.items.all() 
+        if item.product and item.product.seller == request.user
+    ]
+
+    # Se o pedido não contiver nenhum produto deste vendedor, redireciona ou mostra erro
+    if not seller_order_items:
+        messages.error(request, "Você não tem permissão para visualizar este pedido ou ele não contém produtos seus.")
+        logger.warning(f"Tentativa de acesso não autorizado ao detalhe do pedido {order_id} por {request.user.username}.")
+        return redirect('store:seller_orders')
+
+    context = {
+        'page_title': f'Detalhes do Pedido #{order.id}',
+        'order': order,
+        'seller_order_items': seller_order_items, # Apenas os itens do vendedor
+        'categories': categories,
+        'order_statuses': Order.STATUS_CHOICES, # Para o dropdown de status
+    }
+    logger.debug(f"Página de detalhes do pedido #{order.id} renderizada para {request.user.username}.")
+    return render(request, 'store/seller/seller_order_detail.html', context)
+
+
+@seller_required
+@transaction.atomic # Garante atomicidade na atualização
+def seller_update_order_item_status(request, item_id):
+    if request.method == 'POST':
+        order_item = get_object_or_404(OrderItem.objects.select_related('product__seller', 'order'), id=item_id)
+
+        # Verifica se o item pertence ao vendedor logado
+        if not order_item.product or order_item.product.seller != request.user:
+            messages.error(request, "Você não tem permissão para atualizar este item do pedido.")
+            logger.warning(f"Tentativa de atualização não autorizada do item de pedido {item_id} por {request.user.username}.")
+            return redirect('store:seller_orders')
+
+        new_status = request.POST.get('status')
+        new_tracking_code = request.POST.get('tracking_code', '').strip() # Pode ser vazio
+
+        # Valida o novo status
+        valid_statuses = [choice[0] for choice in Order.STATUS_CHOICES]
+        if new_status and new_status in valid_statuses:
+            # Atualiza o status do OrderItem e do Order se for o primeiro item a ser atualizado
+            # Ou se for uma mudança de status que afeta o pedido geral (ex: 'shipped' para todos os itens)
+            # Para simplificar, vamos atualizar o status do Order principal se todos os itens do vendedor forem enviados.
+            
+            # Atualiza o código de rastreamento do OrderItem
+            order_item.tracking_code = new_tracking_code
+            order_item.save()
+            logger.info(f"Código de rastreamento do OrderItem {item_id} atualizado para '{new_tracking_code}' por {request.user.username}.")
+
+            # Lógica para atualizar o status do Order principal:
+            # Se todos os OrderItems *deste vendedor* no pedido estiverem com o status 'shipped',
+            # e o status do pedido ainda for 'processing' ou 'pending',
+            # pode-se considerar atualizar o status do Order para 'shipped'.
+            # Isso é uma lógica de negócio que pode ser ajustada.
+            
+            # Exemplo simples: Se o status do OrderItem for 'shipped', e o Order ainda for 'pending'/'processing',
+            # atualiza o Order para 'processing' ou 'shipped' (dependendo da sua regra de negócio).
+            # Para uma lógica mais complexa, você pode verificar o status de *todos* os OrderItems do pedido.
+            
+            # Para simplificar, vamos permitir que o vendedor atualize o status do OrderItem
+            # e o status do Order principal se ele for o único vendedor no pedido ou se for uma atualização simples.
+            # Uma abordagem mais robusta seria ter um status por OrderItem e um status geral do Order.
+
+            # Para simplificar, vamos atualizar o status do Order principal se o status do item for enviado.
+            # Isso pode ser refinado para um status geral do pedido baseado no status de todos os seus itens.
+            if new_status == 'shipped' and order_item.order.status in ['pending', 'processing']:
+                order_item.order.status = 'shipped'
+                order_item.order.save()
+                messages.success(request, f"Status do Pedido #{order_item.order.id} atualizado para 'Enviado'.")
+                logger.info(f"Status do Pedido #{order_item.order.id} atualizado para 'Enviado' por {request.user.username}.")
+            elif new_status != order_item.order.status: # Se o status do item for diferente do status do pedido
+                 # Se o novo status do item for 'completed' e o pedido ainda estiver 'shipped', atualiza o pedido para 'completed'
+                if new_status == 'completed' and order_item.order.status == 'shipped':
+                    order_item.order.status = 'completed'
+                    order_item.order.save()
+                    messages.success(request, f"Status do Pedido #{order_item.order.id} atualizado para 'Concluído'.")
+                    logger.info(f"Status do Pedido #{order_item.order.id} atualizado para 'Concluído' por {request.user.username}.")
+                # Se o novo status do item for 'processing' e o pedido ainda estiver 'pending', atualiza o pedido para 'processing'
+                elif new_status == 'processing' and order_item.order.status == 'pending':
+                    order_item.order.status = 'processing'
+                    order_item.order.save()
+                    messages.success(request, f"Status do Pedido #{order_item.order.id} atualizado para 'Processando'.")
+                    logger.info(f"Status do Pedido #{order_item.order.id} atualizado para 'Processando' por {request.user.username}.")
+                # Se o novo status do item for 'cancelled' e o pedido ainda não estiver 'completed', atualiza o pedido para 'cancelled'
+                elif new_status == 'cancelled' and order_item.order.status not in ['completed', 'cancelled']:
+                    order_item.order.status = 'cancelled'
+                    order_item.order.save()
+                    messages.success(request, f"Status do Pedido #{order_item.order.id} atualizado para 'Cancelado'.")
+                    logger.info(f"Status do Pedido #{order_item.order.id} atualizado para 'Cancelado' por {request.user.username}.")
+
+
+            messages.success(request, f"Item do pedido '{order_item.product.name}' (Pedido #{order_item.order.id}) atualizado com sucesso.")
+            return redirect('store:seller_order_detail', order_id=order_item.order.id)
+        else:
+            messages.error(request, "Status inválido fornecido.")
+            logger.warning(f"Status inválido recebido para o item de pedido {item_id}: '{new_status}' por {request.user.username}.")
+            return redirect('store:seller_order_detail', order_id=order_item.order.id)
+    messages.error(request, "Método de requisição inválido.")
+    return redirect('store:seller_orders')

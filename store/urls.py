@@ -31,4 +31,9 @@ urlpatterns = [
     path('vendedor/meus-produtos/', views.my_products_view, name='my_products'),
     path('vendedor/editar-produto/<int:pk>/', views.edit_product_view, name='edit_product'),
     path('vendedor/excluir-produto/<int:pk>/', views.delete_product_view, name='delete_product'),
+    
+    # NOVO: Rotas de Gerenciamento de Pedidos para Vendedores
+    path('vendedor/pedidos/', views.seller_orders_view, name='seller_orders'),
+    path('vendedor/pedidos/<int:order_id>/', views.seller_order_detail_view, name='seller_order_detail'),
+    path('vendedor/pedidos/item/<int:item_id>/atualizar/', views.seller_update_order_item_status, name='seller_update_order_item_status'),
 ]

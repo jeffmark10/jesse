@@ -137,7 +137,7 @@
             border-radius: 0.5rem;
             font-weight: 500;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            animation: slideInRight 0.5s ease-out forwards, fadeOut 0.5s ease-out forwards 4.5s;
+            animation: slideInRight 0.5s ease-out forwards, fadeOut 0.5s ease-out forwards 1.5s; /* Ajustado para 2 segundos (0.5s de slide + 1.5s de espera antes do fadeOut) */
             opacity: 0; /* Começa oculto para a animação */
         }
         @keyframes slideInRight {
@@ -339,10 +339,10 @@
             
             container.appendChild(messageDiv);
 
-            // Remove a mensagem após 5 segundos
+            // Remove a mensagem após 2 segundos (2000ms)
             setTimeout(() => {
                 messageDiv.remove();
-            }, 5000); // 5000ms = 5 segundos
+            }, 2000); // 2000ms = 2 segundos
         }
 
         // Converte mensagens do Django para mensagens dinâmicas ao carregar a página
@@ -361,4 +361,3 @@
     </script>
 </body>
 </html>
-

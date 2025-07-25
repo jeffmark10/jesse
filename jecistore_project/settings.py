@@ -95,13 +95,14 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
 
+# Cloudinary configuration (moved outside the DEBUG block to be always available)
+CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
+CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
+CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
+
 if not DEBUG:
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
     MEDIA_URL = '/media/' 
-    
-    CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
-    CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY')
-    CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET')
 else:
     MEDIA_URL = '/media/'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -182,13 +183,12 @@ if not DEBUG:
 # Alerta em produção se DEBUG estiver ativado (apenas para depuração no Render)
 if not DEBUG:
     if 'runserver' not in sys.argv: 
-        # Estes prints serão substituídos pelos logs configurados acima
-        # print("AVISO: DEBUG está DESATIVADO em ambiente de produção.", file=sys.stderr)
-        # print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr) 
-        # try:
-        #     db_host = DATABASES['default'].get('HOST', 'N/A')
-        #     print(f"HOST DO BANCO DE DADOS: {db_host}", file=sys.stderr)
-        # except Exception as e:
-        #     print(f"Erro ao obter HOST do DB para log: {e}", file=sys.stderr)
-        pass # Não é mais necessário, pois o logging faz o trabalho.
+        pass 
 
+# Configuração de Cache (NOVO)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}

@@ -3,7 +3,8 @@
 from django.contrib import admin
 # Importa todos os modelos necessários do seu aplicativo 'store'.
 # Certifique-se de que 'Profile' foi importado, pois é um novo modelo.
-from .models import Product, Category, Cart, CartItem, Profile, User 
+# NOVO: Importa Order e OrderItem
+from .models import Product, Category, Cart, CartItem, Profile, User, Order, OrderItem 
 
 # NOVO REGISTRO: ProfileAdmin
 # Registra o modelo Profile no painel de administração do Django.
@@ -82,7 +83,7 @@ class CartAdmin(admin.ModelAdmin):
 
     # Método personalizado para exibir o preço total do carrinho formatado.
     def get_total_price_display(self, obj):
-        # Garante que o total seja exibido com duas casas decimais e o prefixo "R$".
+        # Garante que o total seja exibido com duas casas decimais e o prefixo "Rquot;.
         return f"R$ {obj.get_total_price():.2f}"
     # Define um nome amigável para a coluna no admin.
     get_total_price_display.short_description = "Valor Total"
@@ -107,3 +108,50 @@ class CartItemAdmin(admin.ModelAdmin):
     def get_total_price_display(self, obj):
         return f"R$ {obj.get_total_price():.2f}"
     get_total_price_display.short_description = "Total do Item"
+
+
+# NOVO REGISTRO: OrderAdmin
+# Permite gerenciar os pedidos no painel de administração.
+class OrderItemInline(admin.TabularInline):
+    # Define OrderItem como um inline para Order, permitindo editar itens do pedido
+    # diretamente na página de detalhes do pedido.
+    model = OrderItem
+    extra = 0 # Não adiciona campos extras vazios por padrão.
+    # Campos que podem ser editados no inline.
+    fields = ['product', 'quantity', 'price_at_purchase', 'tracking_code']
+    readonly_fields = ['price_at_purchase'] # Preço na compra não deve ser alterado.
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    # Campos a serem exibidos na lista de pedidos.
+    list_display = ('id', 'user', 'session_key', 'total_price', 'status', 'created_at')
+    
+    # Filtros para pedidos.
+    list_filter = ('status', 'created_at', 'user')
+    
+    # Campos para pesquisa.
+    search_fields = ('user__username', 'session_key', 'shipping_address', 'contact_info')
+    
+    # Campos somente leitura.
+    readonly_fields = ('created_at', 'updated_at', 'total_price')
+    
+    # Adiciona OrderItemInline para que os itens do pedido sejam exibidos e editáveis
+    # na página de detalhes do pedido.
+    inlines = [OrderItemInline]
+
+# NOVO REGISTRO: OrderItemAdmin
+# Permite gerenciar os itens do pedido separadamente no painel de administração.
+@admin.register(OrderItem)
+class OrderItemAdmin(admin.ModelAdmin):
+    # Campos a serem exibidos na lista de itens do pedido.
+    list_display = ('order', 'product', 'quantity', 'price_at_purchase', 'tracking_code')
+    
+    # Filtros para itens do pedido.
+    list_filter = ('order__status', 'product__category', 'product__seller')
+    
+    # Campos para pesquisa.
+    search_fields = ('order__id__exact', 'product__name', 'tracking_code')
+    
+    # Campos somente leitura.
+    readonly_fields = ('price_at_purchase',)
+

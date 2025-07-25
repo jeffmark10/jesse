@@ -5,9 +5,9 @@
         <div class="md:w-1/2 flex justify-center items-center p-4 bg-stone-50 rounded-xl shadow-inner">
             <!-- Verifica se o produto tem uma imagem antes de tentar exibi-la -->
             {% if product.image %}
-                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full max-h-[500px] object-contain rounded-lg shadow-md border border-stone-200 transition duration-300 transform hover:scale-102">
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full max-h-[500px] object-contain rounded-lg shadow-md border border-stone-200 transition duration-300 transform hover:scale-102 product-image-detail">
             {% else %}
-                <img src="https://placehold.co/600x600/e0e0e0/555555?text=Sem+Imagem" alt="Sem Imagem" class="w-full max-h-[500px] object-contain rounded-lg shadow-md border border-stone-200">
+                <img src="https://placehold.co/600x600/e0e0e0/555555?text=Sem+Imagem" alt="Sem Imagem" class="w-full max-h-[500px] object-contain rounded-lg shadow-md border border-stone-200 product-image-detail">
             {% endif %}
         </div>
         <div class="md:w-1/2 flex flex-col justify-center">
@@ -32,7 +32,7 @@
                 <form id="add-to-cart-form" action="{% url 'store:add_to_cart' product.pk %}" method="POST" class="flex-1 flex items-center gap-2">
                     {% csrf_token %}
                     <input type="number" name="quantity" value="1" min="1" max="{{ product.stock }}" class="w-20 p-2 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-pink-500" {% if product.stock == 0 %}disabled{% endif %}>
-                    <button type="submit" class="flex-1 bg-pink-600 text-white py-3 px-6 rounded-full text-lg font-semibold hover:bg-pink-700 transition duration-300 shadow-lg transform hover:-translate-y-1 {% if product.stock == 0 %}opacity-50 cursor-not-allowed{% endif %}" {% if product.stock == 0 %}disabled{% endif %}>
+                    <button type="submit" class="flex-1 bg-pink-600 text-white py-3 px-6 rounded-full text-lg font-semibold hover:bg-pink-700 transition duration-300 shadow-lg transform hover:-translate-y-1 {% if product.stock == 0 %}opacity-50 cursor-not-allowed{% endif %}" {% if product.stock == 0 %}disabled{% endif %} data-original-text="Adicionar ao Carrinho">
                         Adicionar ao Carrinho
                     </button>
                 </form>
@@ -59,6 +59,7 @@
             const formData = new FormData(form);
             const quantityInput = form.querySelector('input[name="quantity"]');
             const addButton = form.querySelector('button[type="submit"]');
+            const originalButtonText = addButton.dataset.originalText; // Pega o texto original do botão
 
             // Desabilita o botão e mostra um indicador de carregamento
             addButton.disabled = true;
@@ -77,8 +78,40 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    // Inicia a animação "fly-to-cart"
+                    const productImage = document.querySelector('.product-image-detail');
+                    const cartIcon = document.querySelector('.cart-items-count'); // O span do contador
+                    
+                    if (productImage && cartIcon) {
+                        const imgClone = productImage.cloneNode(true);
+                        imgClone.style.position = 'fixed';
+                        imgClone.style.zIndex = '9999';
+                        imgClone.style.transition = 'all 0.8s ease-in-out';
+                        imgClone.style.width = productImage.offsetWidth + 'px';
+                        imgClone.style.height = productImage.offsetHeight + 'px';
+                        imgClone.style.top = productImage.getBoundingClientRect().top + 'px';
+                        imgClone.style.left = productImage.getBoundingClientRect().left + 'px';
+                        imgClone.style.borderRadius = '9999px'; // Para torná-lo redondo
+
+                        document.body.appendChild(imgClone);
+
+                        // Força o reflow para garantir que a transição comece do estado inicial
+                        imgClone.getBoundingClientRect(); 
+
+                        // Animação para o ícone do carrinho
+                        const cartRect = cartIcon.getBoundingClientRect();
+                        imgClone.style.top = cartRect.top + 'px';
+                        imgClone.style.left = cartRect.left + 'px';
+                        imgClone.style.width = '20px';
+                        imgClone.style.height = '20px';
+                        imgClone.style.opacity = '0';
+
+                        setTimeout(() => {
+                            imgClone.remove();
+                        }, 800); // Remove após a animação
+                    }
+
                     // Atualiza a contagem do carrinho no cabeçalho
-                    const cartCountElement = document.querySelector('.cart-items-count');
                     if (cartCountElement) {
                         cartCountElement.innerText = data.cart_count;
                         // Mostra o span se a contagem for maior que 0
@@ -98,14 +131,15 @@
             } finally {
                 // Reabilita o botão e restaura o texto
                 addButton.disabled = false;
-                addButton.innerHTML = 'Adicionar ao Carrinho';
+                addButton.innerHTML = originalButtonText;
                 quantityInput.value = 1; // Reseta a quantidade para 1
             }
         });
 
         // Função para exibir mensagens dinâmicas (será definida em base.html)
+        // Esta é uma declaração de fallback caso base.html não carregue primeiro ou a função não esteja globalmente disponível.
+        // A função real em base.html irá sobrescrever esta.
         function displayMessage(message, type) {
-            // Esta função será sobrescrita pelo script em base.html
             console.log(`Mensagem (${type}): ${message}`);
             // Fallback simples caso a função em base.html não esteja carregada
             alert(message); 
@@ -128,4 +162,3 @@
 
     </script>
 {% endblock %}
-

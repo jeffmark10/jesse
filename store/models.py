@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth.models import User # Importa o modelo User do Django
+from cloudinary.models import CloudinaryField # Importa CloudinaryField
 
 # NOVO MODELO: Profile (Perfil do Usuário)
 # Este modelo estende o modelo User do Django, adicionando informações específicas
@@ -83,12 +84,8 @@ class Product(models.Model):
     
     # Campo para upload de imagem. As imagens serão salvas em 'products/' dentro de MEDIA_ROOT.
     # É opcional (blank=True, null=True).
-    image = models.ImageField(
-        upload_to='products/', 
-        blank=True, 
-        null=True, 
-        verbose_name="Imagem do Produto"
-    )
+    # Alterado para CloudinaryField para integração com Cloudinary
+    image = CloudinaryField('Imagem do Produto', blank=True, null=True)
     
     # Vincula o produto a uma categoria.
     # Se a categoria for deletada, o produto permanece, mas o campo 'category' será nulo (SET_NULL).
@@ -98,7 +95,8 @@ class Product(models.Model):
         null=True, 
         blank=True, 
         related_name='products', # Permite acessar produtos de uma categoria.
-        verbose_name="Categoria"
+        verbose_name="Categoria",
+        db_index=True # Adicionado índice para consultas mais rápidas
     )
     
     # Vincula o produto a um vendedor (um usuário do Django).
@@ -109,7 +107,8 @@ class Product(models.Model):
         null=True,
         blank=True,
         related_name='products_listed', # Permite acessar os produtos listados por um usuário.
-        verbose_name="Vendedor"
+        verbose_name="Vendedor",
+        db_index=True # Adicionado índice para consultas mais rápidas
     )
     
     # Campo para controlar o estoque do produto. Valor padrão é 0.
@@ -119,12 +118,12 @@ class Product(models.Model):
     # Em um sistema real, o código de rastreamento geralmente é gerado por pedido/envio,
     # não por produto. Aqui, para simplificar, ele é associado ao tipo de produto.
     # Se você precisar de um código único por item enviado, considere um modelo de Pedido/ItemPedido.
+    # REMOVIDO unique=True pois este é um código de referência, não de rastreamento de envio.
     tracking_code = models.CharField(
         max_length=50, 
         blank=True, 
         null=True, 
-        unique=True, # Garante que cada código de rastreamento seja único
-        verbose_name="Código de Rastreamento"
+        verbose_name="Código de Referência do Produto" # Alterado o verbose_name para clareza
     )
 
     # Campo booleano para indicar se o produto deve ser exibido na página inicial como destaque.
@@ -146,15 +145,25 @@ class Product(models.Model):
         # Representação em string do objeto Product.
         return self.name
 
+    def get_optimized_image_url(self, width=None, height=None, crop='fill', format='auto:webp', quality='auto'):
+        """
+        Retorna a URL de uma imagem otimizada do Cloudinary.
+        """
+        if self.image:
+            # self.image é um CloudinaryResource
+            # Certifique-se de que o CloudinaryField está configurado corretamente no settings.py
+            return self.image.build_url(width=width, height=height, crop=crop, format=format, quality=quality)
+        return 'https://placehold.co/400x400/cccccc/ffffff?text=Sem+Imagem' # Fallback seguro
+
 # Modelo para representar um carrinho de compras
 # Um carrinho pode ser associado a um usuário logado ou a uma sessão anônima.
 class Cart(models.Model):
-    # Relacionamento um-para-um com o modelo User. Opcional (null=True, blank=True) para carrinhos anônimos.
+    # Relacionamento um-para-one com o modelo User. Opcional (null=True, blank=True) para carrinhos anônimos.
     # Se o usuário for excluído, o carrinho também será excluído (CASCADE).
-    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Usuário")
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Usuário", db_index=True) # Adicionado índice
     
     # Chave de sessão para carrinhos anônimos. Deve ser única.
-    session_key = models.CharField(max_length=40, null=True, blank=True, unique=True, verbose_name="Chave de Sessão")
+    session_key = models.CharField(max_length=40, null=True, blank=True, unique=True, verbose_name="Chave de Sessão", db_index=True) # Adicionado índice
     
     # Data e hora de criação do carrinho.
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado Em")
@@ -204,3 +213,91 @@ class CartItem(models.Model):
     def get_total_price(self):
         # Calcula o preço total para este item específico (quantidade * preço do produto).
         return self.quantity * self.product.price
+
+
+# NOVO MODELO: Order (Pedido)
+# Representa um pedido de compra feito por um usuário (logado ou anônimo).
+class Order(models.Model):
+    # O usuário que fez o pedido. Pode ser nulo para pedidos de usuários não logados.
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuário")
+    
+    # Chave de sessão para pedidos de usuários não logados.
+    session_key = models.CharField(max_length=40, null=True, blank=True, verbose_name="Chave de Sessão")
+    
+    # Endereço de entrega do pedido.
+    shipping_address = models.TextField(verbose_name="Endereço de Entrega")
+    
+    # Informações de contato (e-mail ou telefone) para o pedido.
+    contact_info = models.CharField(max_length=255, verbose_name="Informações de Contato")
+    
+    # Preço total do pedido no momento da compra.
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Preço Total")
+    
+    # Status do pedido (ex: "Pendente", "Processando", "Enviado", "Concluído", "Cancelado").
+    # Usamos choices para garantir valores consistentes.
+    STATUS_CHOICES = [
+        ('pending', 'Pendente'),
+        ('processing', 'Processando'),
+        ('shipped', 'Enviado'),
+        ('completed', 'Concluído'),
+        ('cancelled', 'Cancelado'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Status")
+    
+    # Data e hora em que o pedido foi criado.
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado Em")
+    
+    # Data e hora da última atualização do pedido.
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado Em")
+
+    class Meta:
+        verbose_name = "Pedido"
+        verbose_name_plural = "Pedidos"
+        ordering = ['-created_at'] # Ordena os pedidos pelos mais recentes.
+
+    def __str__(self):
+        # Representação em string do objeto Order.
+        if self.user:
+            return f"Pedido #{self.id} de {self.user.username}"
+        return f"Pedido #{self.id} (Sessão: {self.session_key[:10]}...)"
+
+# NOVO MODELO: OrderItem (Item do Pedido)
+# Representa um produto específico dentro de um pedido.
+class OrderItem(models.Model):
+    # O pedido ao qual este item pertence.
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', verbose_name="Pedido")
+    
+    # O produto que foi comprado.
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, verbose_name="Produto") # SET_NULL caso o produto seja deletado.
+    
+    # Quantidade do produto neste item do pedido.
+    quantity = models.PositiveIntegerField(verbose_name="Quantidade")
+    
+    # Preço do produto no momento da compra (para evitar que o preço mude após o pedido).
+    price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Preço na Compra")
+
+    # NOVO CAMPO: Código de rastreamento para este item específico do pedido.
+    tracking_code = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Código de Rastreamento do Envio"
+    )
+
+    # Status de envio para este item específico (opcional, se quiser granularidade por item)
+    # Poderia ser 'pending', 'shipped', 'delivered', 'returned'
+    # Por enquanto, vamos usar o status do pedido principal, mas este campo está aqui para escalabilidade.
+    
+    class Meta:
+        verbose_name = "Item do Pedido"
+        verbose_name_plural = "Itens do Pedido"
+        # Não precisa de unique_together aqui, pois um pedido pode ter vários itens do mesmo produto
+        # se o usuário adicionou várias vezes e depois fez checkout.
+
+    def __str__(self):
+        # Representação em string do objeto OrderItem.
+        return f"{self.quantity} x {self.product.name if self.product else 'Produto Removido'} (Pedido #{self.order.id})"
+
+    def get_total_price(self):
+        # Calcula o preço total para este item do pedido.
+        return self.quantity * self.price_at_purchase
