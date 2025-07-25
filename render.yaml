@@ -10,6 +10,14 @@ services:
     buildCommand: |
       set -ex # Sai imediatamente se um comando falhar, e imprime comandos executados (para depuração)
       pip install -r requirements.txt # Instala as dependências listadas em requirements.txt
+      
+      # --- NOVOS PASSOS PARA O BUILD DO TAILWIND CSS ---
+      echo "Instalando dependências do Node.js..."
+      npm install
+      echo "Construindo o CSS do Tailwind..."
+      npm run build:css # Executa o script que cria o output.css minificado
+      # --- FIM DOS NOVOS PASSOS ---
+      
       python manage.py collectstatic --noinput -v 2 --clear # Coleta todos os arquivos estáticos (com verbosidade e limpeza forçada)
       python manage.py migrate # Aplica as migrações do banco de dados
       
