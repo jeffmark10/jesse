@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # NOVO: Adicionado WhiteNoise para servir ficheiros estáticos
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -94,6 +95,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
+
+# NOVO: Configuração para WhiteNoise
+# Isto diz ao WhiteNoise para comprimir e cachear os ficheiros estáticos
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Cloudinary configuration (moved outside the DEBUG block to be always available)
 CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME')
