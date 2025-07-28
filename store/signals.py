@@ -3,7 +3,7 @@ import logging
 from django.db.models.signals import post_save
 from django.contrib.auth import get_user_model
 from django.dispatch import receiver
-from .models import Profile
+# from .models import Profile # REMOVIDA ESTA LINHA: A importação será feita dentro da função
 
 # Configura o logger para este módulo
 logger = logging.getLogger(__name__)
@@ -22,6 +22,11 @@ def create_and_save_user_profile(sender, instance, created, **kwargs):
     Cria um objeto Profile para um novo usuário ou salva o perfil existente
     quando um objeto User é salvo.
     """
+    # IMPORTAÇÃO LAZY: O modelo Profile é importado aqui, dentro da função.
+    # Isso garante que ele só seja carregado quando a função for executada,
+    # evitando que seja registrado prematuramente ou múltiplas vezes.
+    from .models import Profile
+
     if created:
         # Se um novo usuário foi criado, cria um perfil correspondente para ele.
         # O campo 'user' do Profile aponta para a instância do User recém-criada.

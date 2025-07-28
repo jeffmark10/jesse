@@ -6,7 +6,7 @@
     <title>{{ page_title|default:"Jeci Store" }}</title>
     <!-- Carrega a fonte Inter do Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
+
     <!-- Carrega o Tailwind CSS compilado localmente -->
     {% load static %}
     <link href="{% static 'dist/output.css' %}" rel="stylesheet">
@@ -140,9 +140,14 @@
             border-radius: 0.5rem;
             font-weight: 500;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            animation: slideInRight 0.5s ease-out forwards, fadeOut 0.5s ease-out forwards 1.5s; /* Ajustado para 2 segundos (0.5s de slide + 1.5s de espera antes do fadeOut) */
+            animation: slideInRight 0.5s ease-out forwards;
             opacity: 0; /* Começa oculto para a animação */
+            animation-fill-mode: forwards; /* Garante que o estado final da animação seja mantido */
         }
+        .dynamic-message.fade-out {
+            animation: fadeOut 0.5s ease-out forwards;
+        }
+
         @keyframes slideInRight {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
@@ -229,14 +234,14 @@
                     <a href="{% url 'store:product_list' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Produtos</a>
                     <a href="{% url 'store:about' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Sobre Nós</a>
                     <a href="{% url 'store:contact' %}" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Contato</a>
-                    
+
                     <!-- Ícone do Carrinho (agora com ID para atualização dinâmica) -->
                     <a href="{% url 'store:view_cart' %}" class="relative text-gray-600 hover:text-pink-600 transition duration-200">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5H3m4 8V5m0 8a2 2 0 100 4m0-4a2 2 0 110 4m-8 0a2 2 0 100 4m0-4a2 2 0 110 4" />
                         </svg>
                         {# Usa a variável 'cart_items_count' do context processor #}
-                        <span class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center cart-items-count {% if cart_items_count == 0 %}hidden{% endif %}">{{ cart_items_count }}</span>
+                        <span id="cart-item-count-badge" class="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center cart-items-count {% if cart_items_count == 0 %}hidden{% endif %}">{{ cart_items_count }}</span>
                     </a>
 
                     <!-- Links de Autenticação -->
@@ -334,28 +339,37 @@
         // Função para exibir mensagens dinâmicas (NOVO)
         function displayMessage(message, type) {
             const container = document.getElementById('dynamic-messages-container');
-            if (!container) return; // Sai se o container não existir
+            if (!container) return;
 
             const messageDiv = document.createElement('div');
             messageDiv.className = `dynamic-message ${type}`;
             messageDiv.innerText = message;
-            
+
             container.appendChild(messageDiv);
 
-            // Remove a mensagem após 2 segundos (2000ms)
+            // Tempo de exibição da mensagem
+            let displayTime = 2000; // Padrão de 2 segundos para sucesso/info/warning
+            if (type === 'error') {
+                displayTime = 5000; // 5 segundos para mensagens de erro
+            }
+
+            // Adiciona a classe para iniciar o fade-out após o tempo de exibição
             setTimeout(() => {
-                messageDiv.remove();
-            }, 2000); // 2000ms = 2 segundos
+                messageDiv.classList.add('fade-out');
+                // Remove o elemento após a animação de fade-out
+                messageDiv.addEventListener('animationend', () => {
+                    messageDiv.remove();
+                }, { once: true });
+            }, displayTime);
         }
 
         // Converte mensagens do Django para mensagens dinâmicas ao carregar a página
         document.addEventListener('DOMContentLoaded', () => {
             const djangoMessages = document.querySelectorAll('.messages li');
             djangoMessages.forEach(msg => {
-                const type = msg.className.split(' ')[0]; // Pega a primeira classe (success, info, etc.)
+                const type = msg.className.split(' ')[0];
                 displayMessage(msg.innerText, type);
             });
-            // Remove o container de mensagens estáticas do Django após convertê-las
             const staticMessagesContainer = document.querySelector('.messages');
             if (staticMessagesContainer) {
                 staticMessagesContainer.remove();
