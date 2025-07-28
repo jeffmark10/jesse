@@ -5,6 +5,7 @@ services:
   - type: web # Define este serviço como um aplicativo web
     name: jecistore # Nome do seu serviço web no Render
     env: python # O ambiente de tempo de execução é Python
+    # REMOVIDO: static_files_path, pois WhiteNoise irá servir os ficheiros estáticos
     # Comando de construção: instala dependências, coleta arquivos estáticos e executa migrações
     buildCommand: |
       set -ex # Sai imediatamente se um comando falhar, e imprime comandos executados (para depuração)
@@ -34,7 +35,7 @@ services:
     startCommand: gunicorn jecistore_project.wsgi:application --bind 0.0.0.0:$PORT
     envVars: # Variáveis de ambiente para o seu aplicativo Django
       - key: PYTHON_VERSION # Define a versão do Python
-        value: 3.11.9 # <--- ALINHE ESTE VALOR com a versão do Python que você está usando localmente
+        value: 3.10.14 # <--- ALINHE ESTE VALOR com a versão do Python que você está usando localmente
       - key: DJANGO_SECRET_KEY # Chave secreta do Django
         generateValue: true # O Render pode gerar um valor seguro para você
       - key: DJANGO_DEBUG # Modo de depuração do Djangao
@@ -47,7 +48,7 @@ services:
           name: jecistore-database # Nome do banco de dados PostgreSQL
           property: connectionString # Obtém a string de conexão completa
       - key: STORE_WHATSAPP_NUMBER # Número do WhatsApp da loja
-        value: "5561998504619" # Seu número de WhatsApp (com código do país e DDD)
+        value: "5586981247491" # Seu número de WhatsApp (com código do país e DDD)
       - key: DJANGO_ALLOWED_HOSTS # Para ALLOWED_HOSTS em produção
         value: jecistore.onrender.com,127.0.0.1,localhost
       # NOVAS VARIÁVEIS PARA O SUPERUSUÁRIO
